@@ -1,0 +1,21 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+.DS_Store
+
+# Local credentials and generated release artifacts
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pfx
+*.pem
+*.ppk
+*.pub
+__pycache__/
+*.pyc
+releases/
+browser-runtime/Browser.app/
+browser-runtime/Browser.zip

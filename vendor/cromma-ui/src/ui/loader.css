@@ -1,0 +1,36 @@
+/**
+ * [INPUT]: 依赖 theme.css 的 laper-shimmer-sweep 关键帧（全站唯一扫光）与 --foreground。
+ * [OUTPUT]: 提供 .cromma-skeleton。.cromma-skeleton是骨架条的底与往复高光。
+ * [POS]: loader.tsx的同位皮，只由它 import。theme.css 只放全站令牌与基元。节奏由组件按实例写进 --skeleton-*。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/* ── 骨架条（ui/loader 的 Skeleton / SkeletonLine / SkeletonText）───────────────────
+   浅底 + 一道 8% 前景色高光往复扫过。关键帧复用上面那条 laper-shimmer-sweep：
+   **只动 transform**，所以跑在合成器线程——主线程被大列表渲染堵住时扫光照常流动。
+   禁止为骨架再写第二条关键帧，流光的节奏会就此分叉。
+
+   节奏（--skeleton-duration / --skeleton-delay）由组件按实例随机后写进来，裸用这个 class
+   会落到缺省的 1.5s / 0s，于是同屏所有骨架同步闪——那正是「加载中」的机械感。
+   延迟必须是负的 + fill-mode both：正延迟期间 ::after 还没进关键帧，高光停在 translateX(0)
+   整块压在骨架中央等发令枪，几十条线各等各的，首半秒就是一片乱闪。 */
+.cromma-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+.cromma-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--foreground) 8%, transparent) 50%, transparent 100%);
+  animation: laper-shimmer-sweep var(--skeleton-duration, 1.5s) var(--skeleton-delay, 0s) infinite ease-in-out both;
+}
+/* 深色底上高光更收敛，否则在炭灰上发白 */
+.dark .cromma-skeleton::after {
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--foreground) 5%, transparent) 50%, transparent 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cromma-skeleton::after {
+    animation: none;
+  }
+}

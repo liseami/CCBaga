@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-labelledby="title description">
+<!--
+[INPUT]: CCTool 的产品定位与原生核心/浏览器回环架构。
+[OUTPUT]: 自包含英文 SVG 项目封面，提供可访问标题与文字，不加载外部资源。
+[POS]: README 首页品牌图；抽象架构示意，不伪装成运行截图或验证结果。
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<title id="title">CCTool — Native control. Observable environments.</title>
+<desc id="description">A dark technical cover for the macOS toolkit, connecting a Rust core to local cleanup and a companion browser.</desc>
+<defs>
+  <linearGradient id="background" x2="1" y2="1"><stop stop-color="#09111e"/><stop offset="1" stop-color="#10293a"/></linearGradient>
+  <radialGradient id="glow"><stop stop-color="#35d5b2" stop-opacity=".18"/><stop offset="1" stop-color="#35d5b2" stop-opacity="0"/></radialGradient>
+  <linearGradient id="accent"><stop stop-color="#fff3d7"/><stop offset="1" stop-color="#ef8960"/></linearGradient>
+  <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#8ab4d0" stroke-opacity=".055"/></pattern>
+</defs>
+<rect width="1280" height="440" rx="24" fill="url(#background)"/>
+<rect width="1280" height="440" rx="24" fill="url(#grid)"/>
+<ellipse cx="1050" cy="190" rx="420" ry="320" fill="url(#glow)"/>
+<g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+  <text x="64" y="82" font-size="27" font-weight="700" fill="#edf6fa">CCTool</text>
+  <text x="64" y="145" font-size="12" font-family="SFMono-Regular,Consolas,monospace" letter-spacing="3" fill="#e8a181">THE NATIVE macOS TOOLKIT</text>
+  <text x="60" y="216" font-size="52" font-weight="700" letter-spacing="-1.8" fill="#f3f8fc">Native control.</text>
+  <text x="60" y="277" font-size="52" font-weight="700" letter-spacing="-1.8" fill="url(#accent)">Observable environments.</text>
+  <text x="64" y="322" font-size="17" fill="#a9bdcd">Local cleanup. Browser fingerprints. System and network setup.</text>
+  <path d="M64 360H683" stroke="#345367"/>
+  <g font-family="SFMono-Regular,Consolas,monospace" font-size="11" letter-spacing="1.4" fill="#92acbf">
+    <text x="64" y="391">RUST CORE</text><text x="206" y="391">NATIVE macOS APIs</text><text x="440" y="391">REAL BROWSER READINGS</text>
+  </g>
+  <g font-family="SFMono-Regular,Consolas,monospace">
+    <path d="M776 153h40v130h30M776 153h40v-30h30" fill="none" stroke="#497487" stroke-width="2"/>
+    <circle cx="816" cy="153" r="4" fill="#8ee8d0"/>
+    <rect x="711" y="181" width="104" height="70" rx="13" fill="#102a39" stroke="#56848b"/>
+    <path d="M728 174v-7m15 7v-7m15 7v-7m15 7v-7m15 7v-7m-60 91v7m15-7v7m15-7v7m15-7v7m15-7v7" stroke="#53888c" stroke-width="2"/>
+    <text x="733" y="210" font-size="11" fill="#8babb8">NATIVE</text><text x="733" y="233" font-size="17" font-weight="700" fill="#bcf4e3">RUST</text>
+    <path d="M815 216h31" stroke="#e8a181" stroke-width="2"/>
+    <rect x="846" y="90" width="370" height="83" rx="14" fill="#102333" stroke="#34566a"/>
+    <circle cx="873" cy="117" r="4" fill="#86b9e7"/>
+    <text x="891" y="121" font-size="11" fill="#85a9c0" letter-spacing="1.2">01 / LOCAL WORKSPACE</text>
+    <text x="869" y="151" font-size="19" font-weight="600" fill="#d8e8f0">Inspect → Confirm → Clean</text>
+    <rect x="846" y="191" width="370" height="83" rx="14" fill="#102a35" stroke="#3a696b"/>
+    <circle cx="873" cy="218" r="4" fill="#8de2c7"/>
+    <text x="891" y="222" font-size="11" fill="#8bd0bc" letter-spacing="1.2">02 / COMPANION BROWSER</text>
+    <text x="869" y="252" font-size="19" font-weight="600" fill="#d8eee7">Launch → Measure → Compare</text>
+    <rect x="846" y="292" width="370" height="83" rx="14" fill="#102333" stroke="#34566a"/>
+    <circle cx="873" cy="319" r="4" fill="#86b9e7"/>
+    <text x="891" y="323" font-size="11" fill="#85a9c0" letter-spacing="1.2">03 / SYSTEM &amp; NETWORK</text>
+    <text x="869" y="353" font-size="19" font-weight="600" fill="#d8e8f0">Configure → Verify → Report</text>
+  </g>
+</g>
+</svg>

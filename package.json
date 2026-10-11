@@ -1,0 +1,36 @@
+{
+  "name": "requirement-french",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "test": "bun test",
+    "install:apps": "sh scripts/install-apps.sh"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "cromma-ui": "file:./vendor/cromma-ui",
+    "radix-ui": "1.6.7",
+    "motion": "14.0.0",
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/bun": "^1.3.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "yaml": "^2.9.1"
+  },
+  "license": "MIT"
+}

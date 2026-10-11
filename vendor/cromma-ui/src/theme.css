@@ -1,0 +1,234 @@
+/**
+ * [INPUT]: 从本机 cromma-ui 复制的全站主题与生成令牌。
+ * [OUTPUT]: 原版颜色、几何、字号与动效的 CSS 契约。
+ * [POS]: 本地组件副本的视觉真相；升级时从源项目同步。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+/* ============ Cromma 设计系统的全站纲领：引入生成的令牌（配色、阴影、圆角、字阶、动效）、减弱动效时三档归零、全站基元（菜单 / 提示入场、按钮摇晃、唯一扫光带）、Apple Squircle 全局圆角与 Tag 一族的共用皮 ============ */
+/* CSS 归属（Laper 同一条）：这里只放全站性内容；绑定某件原语的皮与关键帧与它同位（ui/foo.css 由 ui/foo.tsx import），用普通 CSS + var(--令牌)，不写 @apply / @layer / @theme，也不回流到这里 */
+/* 壳、官网与每个 Cromma App 共用这一份：入口 css 先 @import 'tailwindcss'，再 @import 'cromma-ui/theme.css'，并 @source 本包目录让 Tailwind 扫到原语里的 class；Apple Squircle 全局圆角（corner-shape: squircle + 不支持时的收敛回退）与面板圆角 rounded-panel 的回退同在一处，任何入口都不各自声明 */
+
+@import './tokens.css'; /* 令牌（:root / .dark / @theme）由 tokens/tokens.yaml 生成 */
+
+/* 减弱动态效果：web 动效系统的三档在 CSS 一侧整体归零（JS 一侧由 MotionRoot 的 reducedMotion="user" 管），读 --motion-* 的过渡与关键帧一律直接到位 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-quick: 0ms;
+    --motion-base: 0ms;
+    --motion-panel: 0ms;
+  }
+}
+
+/* ---- 菜单 / 提示的入场动画（Laper 的形，web 动效系统的 quick 档与 ease-motion；Radix 浮层关时即卸，只有入场）。模态与资料栏的进出走 Motion（../motion.ts） ---- */
+@keyframes laper-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes laper-menu-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.laper-tooltip-motion {
+  transform-origin: var(--radix-tooltip-content-transform-origin, center);
+  animation: laper-tooltip-in var(--motion-quick) var(--ease-motion) both;
+}
+.laper-menu-motion {
+  /* 三种 Radix 浮层各给自己的原点变量：谁在场用谁 */
+  transform-origin: var(--radix-popover-content-transform-origin, var(--radix-dropdown-menu-content-transform-origin, var(--radix-select-content-transform-origin, center)));
+  animation: laper-menu-pop-in var(--motion-quick) var(--ease-motion) both;
+}
+/* 子菜单横滑（Laper VARIANTS.submenuSlide：x -10 → 0，quick 档）：UserMenu 的语言 / 外观子菜单 */
+@keyframes laper-submenu-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.laper-submenu-motion {
+  animation: laper-submenu-slide-in var(--motion-quick) var(--ease-motion) both;
+  will-change: opacity, transform;
+}
+
+/* ---- 按钮：禁用点击摇晃 + 加载流光（Laper 唯一的扫光基元） ---- */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+@keyframes laper-shimmer-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.laper-shimmer-band {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent var(--shimmer-edge-in), color-mix(in srgb, var(--shimmer-tint) var(--shimmer-peak), transparent) 50%, transparent var(--shimmer-edge-out));
+  animation: laper-shimmer-sweep var(--shimmer-duration) linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Apple Squircle 全局圆角 - 连续曲率圆角（取自 Laper index.css）
+ * Chromium 支持 corner-shape 时用真实 squircle；不支持时从 utility 层统一收敛圆角 scale。
+ * 不对按钮做特判，所有组件同源变克制；rounded-full 保持显式 pill 语义。
+ * ═══════════════════════════════════════════════════════════════════════════ */
+[class*='rounded'] {
+  corner-shape: squircle;
+}
+.rounded-full {
+  corner-shape: round;
+}
+/* rounded-[inherit] 的子层（受光层、描边层）连角形一起随父：父是面板的超椭圆，子也是 */
+[class*='rounded-[inherit]'] {
+  corner-shape: inherit;
+}
+@supports not (corner-shape: squircle) {
+  /* 面板（rounded-panel，Laper 面板的 24 squircle）退成 Laper 同一回退的正圆角；换的是变量，rounded-t-panel 这类拆角写法照样成立 */
+  :root {
+    --radius-panel: var(--panel-radius-fallback);
+  }
+  .rounded-sm {
+    border-radius: 0.0625rem;
+  }
+  .rounded,
+  .rounded-md {
+    border-radius: 0.1875rem;
+  }
+  .rounded-lg {
+    border-radius: 0.25rem;
+  }
+  .rounded-xl {
+    border-radius: 0.375rem;
+  }
+  .rounded-2xl {
+    border-radius: 0.5rem;
+  }
+  .rounded-3xl {
+    border-radius: 0.625rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Tag（Chip）质感——Figma「Button dialog」（node 17005:849）逐层还原：
+ * 底色 → 自上而下 4% 暗渐变 → 上下 1px 内高光 → 0.5px 发丝边 → 上浅下深的 0.5px 描线 → 两层极淡外投影
+ * 悬停叠一层极淡的墨（Figma 的 Background 层），按下（aria-pressed）换墨色版
+ * ═══════════════════════════════════════════════════════════════════════════ */
+/* Tag、选项行（OptionRow）与白钮（Button secondary）同一张皮：同一组 --tag-* 令牌、同一叠内高光；只有「选中」各走各的——Tag 翻成墨色，选项行描 primary 边并发 Input 聚焦同款柔光 */
+/* ── 受色的滑块皮（Figma「Button dialog」里 Lovable 分段控件那枚滑块，node 17005:772）──────────
+   白底 + 16% 色调 + 自上而下 4% 暗渐变，0.5px 的色调描线，三层白内高光，两层同色淡投影。
+   色由 --pill-tone 给，缺省主题色——同一副光影换个色相就是另一枚，不必为每种颜色抄一遍。
+   两个变体只差「边怎么画」：胶囊形用 inset 阴影，squircle 角用真 border
+   （squircle 的曲线从边更早处起弯，0.5px 的 inset 阴影在拐角处会被抗锯齿吃掉）。
+   消费者：Segmented 的选中滑块、Tag 的受色态。 */
+.cromma-pill {
+  /* 淡底之下那层底取 --segment-thumb：web 恒白；手机两端暗色换抬亮的灰（tokens.yaml 的 platform 段） */
+  --pill-tone: var(--primary);
+  --pill-ring: color-mix(in srgb, var(--pill-tone) 70%, white);
+  --pill-light:
+    inset 0 1px 1px 0 rgb(255 255 255 / 0.48), inset 0 -1px 1px 0 rgb(255 255 255 / 0.16), inset 0 0 1px 1px rgb(255 255 255 / 0.56),
+    0 2px 2px -1px color-mix(in srgb, var(--pill-tone) 8%, transparent), 0 4px 4px -2px color-mix(in srgb, var(--pill-tone) 8%, transparent);
+  color: var(--pill-tone);
+  background-image:
+    linear-gradient(180deg, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.04) 100%),
+    linear-gradient(90deg, color-mix(in srgb, var(--pill-tone) 16%, transparent), color-mix(in srgb, var(--pill-tone) 16%, transparent)),
+    linear-gradient(90deg, var(--segment-thumb), var(--segment-thumb));
+  box-shadow: var(--pill-light);
+}
+/* 胶囊形：边画成 inset 阴影 */
+.cromma-pill--ring {
+  box-shadow:
+    inset 0 0 0 0.5px var(--pill-ring),
+    var(--pill-light);
+}
+/* squircle 角：边必须是真 border，才跟得上 corner-shape 的曲线 */
+.cromma-pill--border {
+  border: 0.5px solid var(--pill-ring);
+}
+
+/* ── 只要那副边，不要那层底 ────────────────────────────────────────────────
+   .cromma-tag 把「边」和「白底」绑在一起卖。自带底色的表面（官网首屏那块灰托盘）
+   想要同一副边，就只能把 box-shadow 那一段单拿出来——**令牌仍是同一组 --tag-***，
+   所以它和 Button / Chip 的边永远是同一条，改一处三处一起变。
+   注意这里没有 --tag-glow：那是 OptionRow 选中时的外发光，与边无关。 */
+.cromma-edge {
+  box-shadow:
+    inset 0 0 0 0.5px var(--tag-hairline),
+    inset 0 0.5px 0 0 var(--tag-edge-top),
+    inset 0 -0.5px 0 0 var(--tag-edge-bottom),
+    inset 0 2px 0 -1px var(--tag-highlight-top),
+    inset 0 -2px 0 -1px var(--tag-highlight-bottom),
+    var(--tag-drop);
+}
+
+.cromma-tag,
+.cromma-option-row {
+  --tag-hover-layer: transparent;
+  --tag-edge: 0 0 0 0.5px var(--tag-hairline);
+  --tag-glow: 0 0 0 0 transparent;
+  color: var(--tag-fg);
+  background-color: var(--tag-base);
+  background-image: linear-gradient(var(--tag-hover-layer), var(--tag-hover-layer)), linear-gradient(to bottom, transparent, var(--tag-shade));
+  box-shadow:
+    inset var(--tag-edge),
+    inset 0 0.5px 0 0 var(--tag-edge-top),
+    inset 0 -0.5px 0 0 var(--tag-edge-bottom),
+    inset 0 2px 0 -1px var(--tag-highlight-top),
+    inset 0 -2px 0 -1px var(--tag-highlight-bottom),
+    var(--tag-drop),
+    var(--tag-glow);
+}
+.cromma-tag:hover,
+.cromma-option-row:hover {
+  --tag-hover-layer: var(--tag-hover);
+}
+.cromma-option-row[aria-checked='true'] {
+  --tag-edge: 0 0 0 1px var(--primary);
+  --tag-glow: var(--shadow-glow-input);
+}
+.cromma-tag[aria-pressed='true'] {
+  color: var(--tag-on-fg);
+  background-color: var(--tag-on-base);
+  background-image: linear-gradient(var(--tag-hover-layer), var(--tag-hover-layer)), linear-gradient(to bottom, transparent, var(--tag-on-shade));
+  box-shadow:
+    inset 0 0 0 0.5px var(--tag-on-hairline),
+    inset 0 2px 0 -1px var(--tag-on-highlight-top),
+    inset 0 -2px 0 -1px var(--tag-on-highlight-bottom),
+    var(--tag-drop);
+}

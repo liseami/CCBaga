@@ -1,0 +1,1 @@
+{"identifier":"main","description":"单窗口事件与界面控制","windows":["main"],"permissions":["core:default","core:window:allow-start-dragging"]}

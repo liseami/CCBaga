@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+[INPUT]: Chromium Renderer/GPU 的 V8 与 SwiftShader MAP_JIT 内存能力。
+[OUTPUT]: Hardened Runtime 下仅允许 JIT；不授予调试、任意库加载或未签名可执行内存。
+[POS]: scripts/sign-browser.py 只向 Renderer/GPU Helper 应用附加，其他程序保持默认运行时保护。
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>com.apple.security.cs.allow-jit</key><true/></dict></plist>
