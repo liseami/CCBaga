@@ -29,7 +29,9 @@ def main():
         raise SystemExit('Public releases require a Developer ID Application identity')
     if not Path(os.environ['APPLE_API_KEY_PATH']).is_file():
         raise SystemExit('Apple API key file does not exist')
-    version = json.loads((ROOT / 'package.json').read_text())['version']
+    version = os.environ.get('CC_RELEASE_VERSION', json.loads((ROOT / 'package.json').read_text())['version'])
+    if not __import__('re').fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
+        raise SystemExit('Release version must have three numeric components')
     output = ROOT / 'releases'
     output.mkdir(exist_ok=True)
     records = []
@@ -59,7 +61,7 @@ def main():
     for key in required[1:]:
         build_env.pop(key, None)
     build_env['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
-    config = json.dumps({'build': {'beforeBuildCommand': 'bun run build'}, 'bundle': {'macOS': {'signingIdentity': identity}}})
+    config = json.dumps({'version': version, 'build': {'beforeBuildCommand': 'bun run build'}, 'bundle': {'macOS': {'signingIdentity': identity}}})
     run('bun', 'run', 'tauri', 'build', '--bundles', 'app', '--features', 'custom-protocol', '--config', config, env=build_env)
     with tempfile.TemporaryDirectory(prefix='cctool-release-') as temporary:
         work = Path(temporary)
@@ -81,7 +83,8 @@ def main():
         run('codesign', '--force', '--sign', identity, '--timestamp', dmg)
         notarize(dmg, dmg)
         run('spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=2', dmg)
-    digest = hashlib.file_digest(dmg.open('rb'), 'sha256').hexdigest()
+    with dmg.open('rb') as stream:
+        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     (output / 'SHA256SUMS').write_text(f'{digest}  {dmg.name}\n')
     print(f'Release verified: {dmg}', flush=True)
 

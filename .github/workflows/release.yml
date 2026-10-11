@@ -1,0 +1,134 @@
+# [INPUT]: release 分支 commit、锁定依赖与 GitHub Secrets 中的 Apple 签名凭据。
+# [OUTPUT]: 已公证装订的双应用 DMG、SHA-256、递增版本 tag 和 GitHub Release。
+# [POS]: 自动发布入口；签名和发布权限分离，不对 PR 或外部分支开放私钥。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+name: Release
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.ref == 'refs/heads/release'
+    runs-on: macos-15
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Compute release version
+        id: version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          major, minor, patch = map(int, json.load(open('package.json'))['version'].split('.'))
+          version = f'{major}.{minor}.{patch + int(os.environ["GITHUB_RUN_NUMBER"])}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              stream.write(f'version={version}\ntag=v{version}\n')
+          PY
+      - name: Prepare locked toolchain and engine
+        run: |
+          test "$(uname -m)" = arm64
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup default 1.98.1
+          bun install --frozen-lockfile
+          python3 scripts/fetch-browser.py
+      - name: Run checks
+        run: |
+          bun test
+          bun run build
+          python3 scripts/test-sign-browser.py
+          CC_SIGN_IDENTITY=- sh scripts/package-browser.sh
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --features custom-protocol
+      - name: Import signing credentials and publishable build
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CC_SIGN_IDENTITY: ${{ secrets.CC_SIGN_IDENTITY }}
+          CC_RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          for variable in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_PRIVATE_KEY APPLE_API_KEY APPLE_API_ISSUER CC_SIGN_IDENTITY; do
+            test -n "${!variable}" || { echo "Missing GitHub Secret: $variable" >&2; exit 1; }
+          done
+          certificate="$RUNNER_TEMP/cctool-signing.p12"
+          export APPLE_API_KEY_PATH="$RUNNER_TEMP/cctool-notary.p8"
+          keychain="$RUNNER_TEMP/cctool-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$APPLE_API_KEY_PATH"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain" >/dev/null
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
+          unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_PRIVATE_KEY
+          python3 scripts/release-macos.py
+      - name: Remove signing credentials
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "$RUNNER_TEMP/cctool-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/cctool-signing.p12" "$RUNNER_TEMP/cctool-notary.p8"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: macos-${{ github.run_id }}
+          path: |
+            releases/*.dmg
+            releases/SHA256SUMS
+            releases/notarization.json
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: macos-${{ github.run_id }}
+          path: releases
+      - name: Verify release digest
+        working-directory: releases
+        run: sha256sum --check SHA256SUMS
+      - name: Attest public release provenance
+        if: github.event.repository.private == false
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
+        with:
+          subject-path: releases/*.dmg
+      - name: Create tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" releases/*.dmg releases/SHA256SUMS releases/notarization.json \
+            --target "$RELEASE_COMMIT" --title "CCTool $RELEASE_VERSION" --generate-notes --draft
+          gh release edit "$RELEASE_TAG" --draft=false

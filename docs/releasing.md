@@ -21,6 +21,27 @@ Set these environment variables in your shell or CI secret store:
 
 The development configuration uses ad hoc signing (`-`). It is not a public distribution signature.
 
+## GitHub Actions
+
+The [Release workflow](../.github/workflows/release.yml) runs on every push to **`release`**, including documentation changes. It can also be dispatched manually against that branch after the workflow is present on the default branch. There is no pull-request signing path.
+
+Configure these **repository Secrets** once:
+
+| Secret | Value |
+| --- | --- |
+| `APPLE_CERTIFICATE` | Base64-encoded `.p12` containing the selected Developer ID Application certificate and its private key |
+| `APPLE_CERTIFICATE_PASSWORD` | Password protecting that `.p12` |
+| `APPLE_API_PRIVATE_KEY` | Complete contents of the Apple API `.p8` key |
+| `APPLE_API_KEY` | Apple API key ID |
+| `APPLE_API_ISSUER` | Apple API issuer UUID |
+| `CC_SIGN_IDENTITY` | Matching Developer ID certificate name or SHA-1 fingerprint |
+
+Import only the intended signing identity, not every identity in a personal keychain. Never commit key files or paste secret values into issues, logs or workflow YAML. The workflow writes credentials under `RUNNER_TEMP`, removes them in an `always()` cleanup step, and uploads only the DMG, checksum manifest and public notarization results.
+
+The base major/minor/patch comes from `package.json`. The workflow adds `github.run_number` to its base patch, sets the app version, and creates the corresponding `v` tag only after all checks succeed. For a base `0.2.0`, runs 1 and 2 release `v0.2.1` and `v0.2.2`. Failed runs can leave gaps. Existing releases are not overwritten; use a new push or manual dispatch to produce a new version.
+
+The build job has read-only repository access; only the separate publish job can create tags/releases. Actions are pinned to full commit SHAs, dependency locks are enforced, and Dependabot proposes reviewed updates. Each run keeps an immutable artifact for 14 days. Public repositories include GitHub provenance attestations; private repositories retain the notarization and checksum evidence without requiring GitHub Enterprise attestation support.
+
 ## Build and notarize
 
 ```sh
@@ -46,6 +67,6 @@ Apple may take several minutes to process each submission. A submission ID alone
 - Resolve the copied Cromma UI/Pika icon license provenance described in [NOTICE.md](../NOTICE.md).
 - Inspect the actual staged source and release contents for credentials and user data.
 - Run the native checks listed in the README and user acceptance on supported macOS hardware.
-- Upload the verified DMG and `SHA256SUMS` to the real repository release page, then add that URL to the README.
+- Push reviewed code to `release`; inspect the successful Actions run and its uploaded DMG and `SHA256SUMS`.
 
 Do not remove quarantine attributes, disable Gatekeeper or ask users to bypass a security warning. Signing and notarization establish publisher identity and Apple acceptance; they do not replace functional testing or guarantee every future macOS version.

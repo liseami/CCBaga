@@ -54,7 +54,7 @@ The interface supports **English and Chinese**, with shared YAML catalogs. Switc
 
 **Platform:** macOS 12 or later, Apple Silicon. Intel, Windows and Linux application builds are not currently supported.
 
-The distribution package is named `CCTool-0.2.0-macos-arm64.dmg`. It contains both applications:
+Download the signed installer from [GitHub Releases](https://github.com/liseami/CCFUCKER/releases/latest). The distribution package is named `CCTool-<version>-macos-arm64.dmg`. It contains both applications:
 
 | Application | Installed bundle | Role |
 | --- | --- | --- |
@@ -67,7 +67,7 @@ The distribution package is named `CCTool-0.2.0-macos-arm64.dmg`. It contains bo
 
 Public release packages must pass Developer ID signing, Apple notarization, ticket stapling and Gatekeeper assessment. See the [release procedure](docs/releasing.md) for the exact checks. macOS may still display its normal first-launch confirmation and ask for permissions when you use privileged features.
 
-Source builds are available through the [development guide](#development). This README does not assume a published download URL.
+Source builds are available through the [development guide](#development). Every successful push to `release` produces a new version, tag and notarized installer.
 
 ## Quick start
 
@@ -158,18 +158,23 @@ The large browser application and archive are generated/runtime inputs, excluded
 
 Use an Apple Silicon Mac with Xcode Command Line Tools, stable Rust and Bun. Follow [Tauri's macOS prerequisites](https://v2.tauri.app/start/prerequisites/#macos) for the native toolchain.
 
-The browser engine is an external build input. Obtain the matching macOS arm64 **Fingerprint Chromium 148.0.7778.215** application from the [upstream project](https://github.com/adryfish/fingerprint-chromium), preserve its bundle structure and notices, and place it at `browser-runtime/Browser.app`. Browser runtime binaries are not included in the source repository.
+The browser engine is an external build input. `python3 scripts/fetch-browser.py` downloads the pinned macOS arm64 **Fingerprint Chromium 148.0.7778.215** engine from the [upstream project](https://github.com/adryfish/fingerprint-chromium), verifies its SHA-256 and preserves its bundle structure and notices. Browser runtime binaries are not included in the source repository.
 
 From your checkout:
 
 ```sh
 bun install --frozen-lockfile
+python3 scripts/fetch-browser.py
 sh scripts/make-icons.sh
 sh scripts/package-browser.sh
 bun run tauri dev
 ```
 
 Local builds use ad-hoc signing by default, so another developer does not need the maintainer's certificate. They are not public distribution builds. See [Tauri's signing documentation](https://v2.tauri.app/distribute/sign/macos/) and the [release procedure](docs/releasing.md) for Developer ID signing and notarization.
+
+### Automated releases
+
+Push to `release` to run the complete macOS pipeline: frontend and native tests, pinned engine verification, Developer ID signing, Apple notarization and offline ticket stapling. A successful run creates an increasing `v<major>.<minor>.<patch>` tag and uploads the DMG and SHA-256 manifest. Public repositories also receive GitHub build provenance attestations. Apple credentials stay in GitHub Secrets and a disposable runner keychain. See [release setup](docs/releasing.md#github-actions).
 
 ### Build
 

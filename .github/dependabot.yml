@@ -1,0 +1,14 @@
+# [INPUT]: 仓库 Actions 的固定提交与锁定依赖。
+# [OUTPUT]: 每周提交可审阅的版本更新 PR。
+# [POS]: 开源依赖维护入口，不访问签名凭据。
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
