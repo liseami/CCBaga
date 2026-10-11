@@ -116,7 +116,7 @@ jobs:
         run: sha256sum --check SHA256SUMS
       - name: Attest public release provenance
         if: github.event.repository.private == false
-        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: releases/*.dmg
       - name: Create tag and publish release
