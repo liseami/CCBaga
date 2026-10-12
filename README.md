@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 已实现功能、开发配置、双应用使用方式与 MIT/第三方许可边界。
+[INPUT]: 已实现功能、开发配置、跨平台 PR 回归、双应用使用方式与 MIT/第三方许可边界。
 [OUTPUT]: 面向公开仓库的英文产品首页、安装与开发入口、架构和贡献导航。
 [POS]: 项目公开入口，连接产品功能、使用说明与模块导航。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -199,6 +199,8 @@ python3 scripts/test-sign-browser.py
 python3 skills/ccbaga-network/scripts/test_network.py
 bash -n skills/ccbaga-network/scripts/setup-vps.sh
 ```
+
+Pull requests run the existing frontend, native Rust, offline Skill and npm skill-installation checks on Ubuntu, macOS and Windows, plus the relevant platform regression tests. The workflow uses a read-only token, no signing secrets and no artifact uploads; it does not publish releases or download the browser engine. Complete engine and installer validation remains part of the separate delivery checks.
 
 Automated tests exercise disposable fixtures and local test servers. They do not deploy a real VPS, delete your Claude account data or perform administrator-authorized system changes. Real SSH connectivity, client-side TUN routing and permission-dependent operations require validation in the target environment.
 

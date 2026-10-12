@@ -3,7 +3,7 @@
 Tauri 2.12.1 + Rust + macOS AppKit/UniformTypeIdentifiers/Accessibility/Security/CoreLocation + SHA-256 + React 19.3.0 + TypeScript 5.9.3 + Cromma UI 本地副本 + Radix UI 1.6.7 + Tailwind CSS 4.3.3 + Motion 14.0.0 + Vite 7.3.6 + YAML 2.9.1（仅构建）
 
 <directory>
-.github/ - release 分支自动测试、公证与发布工作流，以及依赖更新；见其 CLAUDE.md
+.github/ - PR 的 Ubuntu/macOS/Windows 无凭据回归、release 分支自动测试、公证与发布工作流，以及依赖更新；见其 CLAUDE.md
 src/ - 黑色主题的 Laper 最新 Landing 斜纹/点阵/细线内容壳、Cromma UI 极简侧栏导航与右侧傻瓜设置（国家地区选择和四个快捷按钮）、Claude 清理与 CLI 卸载/重装、浏览器核验、电脑设置与网络环境（三步固定资源入口、五项 AI 图标分段、问号服务规格与双语安装/运行提示词）及 YAML 中英文切换；见其 CLAUDE.md
 src-tauri/ - 白名单深度清理、Claude Code CLI 安装管理、独立指纹浏览器、国家地区目录、电脑环境设置与固定网络资源导航；见其 CLAUDE.md
 browser-runtime/ - 固定摘要的独立 Fingerprint Chromium 引擎与保留 Framework 链接的打包归档；见其 CLAUDE.md
