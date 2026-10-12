@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# [INPUT]: Windows PowerShell 5.1、Rust 样本程序与可丢弃官方安装目录。
-# [OUTPUT]: 真正 CLI 卸载、来源保留重装、失败/自定义启动器拒绝与个人资产保留的回归。
+# [INPUT]: Windows PowerShell 5.1、Rust 样本程序、可丢弃安装目录与离线官方安装器响应样本。
+# [OUTPUT]: CLI 来源保留重装、原生安装器字节/文本响应、下载失败保护与个人资产保留的回归。
 # [POS]: Windows 平台行为测试；仅操作临时样本，不卸载 runner 或用户的真实 Claude。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 import json
@@ -47,13 +47,35 @@ _ => std::process::exit(9)
         path=self.home/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8');return path
     def invoke(self,action):
         command="[Console]::InputEncoding=New-Object System.Text.UTF8Encoding; & ([scriptblock]::Create([Console]::In.ReadToEnd())) '"+action+"'"
-        return subprocess.run([str(POWERSHELL),'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',command],input=SCRIPT,env=self.env,capture_output=True,encoding='utf-8',timeout=30)
+        mock=r'''function Invoke-WebRequest {
+param([switch]$UseBasicParsing,[string]$Uri,[int]$TimeoutSec)
+if($Uri -ne 'https://claude.ai/install.ps1'){throw 'Unexpected download URL'}
+if($env:CC_FIXTURE_DOWNLOAD_FAIL){throw 'fixture-private-diagnostic'}
+$content=[IO.File]::ReadAllBytes($env:CC_FIXTURE_INSTALLER)
+if($env:CC_FIXTURE_TEXT_RESPONSE){$content=[Text.Encoding]::UTF8.GetString($content)}
+return @{Content=$content}
+}
+''' if 'CC_FIXTURE_INSTALLER' in self.env else ''
+        script=mock+"\n& {\n"+SCRIPT+"\n} '"+action+"'\n" if mock else SCRIPT
+        return subprocess.run([str(POWERSHELL),'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',command],input=script,env=self.env,capture_output=True,encoding='utf-8',timeout=30)
+    def installer(self,content=None):
+        if content is None:
+            content=r'''param([string]$Target='latest')
+$native=Join-Path $env:USERPROFILE '.local\bin\claude.exe'
+$versions=Join-Path $env:USERPROFILE '.local\share\claude\versions'
+New-Item -ItemType Directory -Force -Path (Split-Path $native -Parent),$versions | Out-Null
+Copy-Item -LiteralPath $env:CC_FIXTURE_PAYLOAD -Destination $native
+Copy-Item -LiteralPath $env:CC_FIXTURE_PAYLOAD -Destination (Join-Path $versions '2.1.0')
+'''
+        script=self.file('bootstrap.ps1',content)
+        self.env['CC_FIXTURE_INSTALLER']=str(script)
+        self.env['CC_FIXTURE_PAYLOAD']=str(self.binary)
     def assets(self):
         self.assertEqual(self.skill.read_text(encoding='utf-8'),'keep-skill')
         self.assertEqual(json.loads(self.settings.read_text(encoding='utf-8')),{'keep':True})
     def native(self):
-        binary=self.home/'.local/bin/claude.exe';binary.parent.mkdir(parents=True)
-        version=self.home/'.local/share/claude/versions/2.1.0';version.parent.mkdir(parents=True)
+        binary=self.home/'.local/bin/claude.exe';binary.parent.mkdir(parents=True,exist_ok=True)
+        version=self.home/'.local/share/claude/versions/2.1.0';version.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(self.binary,binary);shutil.copyfile(self.binary,version)
         return binary,version
     def npm(self):
@@ -77,6 +99,38 @@ default {exit 8}
         read=self.invoke('read');self.assertEqual(read.returncode,0,read.stderr);self.assertIn('CC_CLI_METHOD=native',read.stdout)
         result=self.invoke('uninstall');self.assertEqual(result.returncode,0,result.stderr);self.assertIn('CC_CLI_DONE=1',result.stdout)
         self.assertFalse(binary.exists());self.assertFalse(version.exists());self.assets()
+    def test_native_reinstall_decodes_binary_bootstrap_without_path(self):
+        self.native();self.installer();result=self.invoke('reinstall')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('CC_CLI_METHOD=native',result.stdout)
+        self.assertIn('CC_CLI_VERSION=2.1.0',result.stdout)
+        self.assertIn('CC_CLI_DONE=1',result.stdout);self.assets()
+    def test_fresh_native_install_accepts_text_bootstrap(self):
+        self.installer();self.env['CC_FIXTURE_TEXT_RESPONSE']='1';result=self.invoke('reinstall')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('CC_CLI_METHOD=native',result.stdout)
+        self.assertIn('CC_CLI_DONE=1',result.stdout);self.assets()
+    def test_native_download_or_invalid_bootstrap_preserves_existing_install(self):
+        for failure in ['download','html','syntax','oversized','encoding']:
+            with self.subTest(failure=failure):
+                binary,version=self.native()
+                content={'html':'<!doctype html><html>unavailable</html>',
+                         'syntax':'param( invalid',
+                         'oversized':'param()\n#'+('x'*1048576)}.get(failure)
+                self.installer(content)
+                if failure=='encoding':Path(self.env['CC_FIXTURE_INSTALLER']).write_bytes(b'param()\n#\xff')
+                if failure=='download':self.env['CC_FIXTURE_DOWNLOAD_FAIL']='1'
+                else:self.env.pop('CC_FIXTURE_DOWNLOAD_FAIL',None)
+                result=self.invoke('reinstall')
+                self.assertNotEqual(result.returncode,0,result.stderr)
+                self.assertNotIn('CC_CLI_DONE=1',result.stdout)
+                self.assertNotIn('fixture-private-diagnostic',result.stderr)
+                self.assertTrue(binary.exists());self.assertTrue(version.exists());self.assets()
+    def test_native_installer_failure_does_not_claim_success(self):
+        self.installer("param()\nthrow 'fixture-private-diagnostic'\n")
+        result=self.invoke('reinstall');self.assertNotEqual(result.returncode,0)
+        self.assertNotIn('CC_CLI_DONE=1',result.stdout)
+        self.assertNotIn('fixture-private-diagnostic',result.stderr);self.assets()
     def test_npm_reinstall_and_uninstall(self):
         self.npm();result=self.invoke('reinstall')
         self.assertEqual(result.returncode,0,result.stderr);self.assertIn('CC_CLI_METHOD=npm',result.stdout);self.assertIn('CC_CLI_VERSION=2.2.0',result.stdout)
