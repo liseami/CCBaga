@@ -273,10 +273,7 @@ impl Store {
                     return Err("身份归档成员无效。".into());
                 }
                 let second = parts.next().ok_or("身份归档成员无效。")?;
-                let key = PathBuf::from("data")
-                    .join(second.as_os_str())
-                    .to_string_lossy()
-                    .into_owned();
+                let key = format!("data/{}", second.as_os_str().to_string_lossy());
                 if !expected.contains(&key) {
                     return Err("身份归档成员无效。".into());
                 }
