@@ -3,12 +3,18 @@
 // [POS]: 身份管理的离线验证入口；平台真实登入需用户验收。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
+#[cfg(windows)]
+use dunce::canonicalize;
+#[cfg(not(windows))]
+use std::fs::canonicalize;
 fn fixture_write(path: impl AsRef<std::path::Path>, bytes: impl AsRef<[u8]>) -> Result<(), String> {
-    private::write(path.as_ref(), bytes.as_ref())
+    private::write(path.as_ref(), bytes.as_ref())?;
+    assert_eq!(canonicalize(path.as_ref()).unwrap(), path.as_ref(), "fixture must use canonical paths");
+    Ok(())
 }
 #[test]
 fn database_metadata_and_recovery_are_transactional() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let mut db = database::Database::open(&folder).unwrap();
@@ -35,7 +41,7 @@ fn database_metadata_and_recovery_are_transactional() {
 }
 #[test]
 fn empty_identity_and_saved_identity_preserve_user_choices() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -109,7 +115,7 @@ fn empty_identity_and_saved_identity_preserve_user_choices() {
 }
 #[test]
 fn interrupted_switch_can_recover_and_preserves_pre_recovery_state() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -147,7 +153,7 @@ fn interrupted_switch_can_recover_and_preserves_pre_recovery_state() {
 }
 #[test]
 fn damaged_saved_archive_never_changes_live_identity() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -190,7 +196,7 @@ fn damaged_saved_archive_never_changes_live_identity() {
 #[cfg(unix)]
 #[test]
 fn selected_symlink_is_refused_without_changing_source() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -220,7 +226,7 @@ fn selected_symlink_is_refused_without_changing_source() {
 
 #[test]
 fn direct_delete_respects_kept_data_and_removes_only_selected_archive() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -273,7 +279,7 @@ fn direct_delete_respects_kept_data_and_removes_only_selected_archive() {
 }
 #[test]
 fn restoring_full_settings_preserves_newer_shared_settings_when_requested() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
@@ -324,7 +330,7 @@ fn restoring_full_settings_preserves_newer_shared_settings_when_requested() {
 
 #[test]
 fn missing_master_key_never_replaces_a_retired_registered_archive() {
-    let folder = std::fs::canonicalize(std::env::temp_dir())
+    let folder = canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");

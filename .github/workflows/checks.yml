@@ -69,6 +69,7 @@ jobs:
           workspaces: src-tauri -> target
           # PR 的 merge-ref 缓存与 release 的各平台键隔离。
           shared-key: checks-${{ matrix.platform }}
+          cache-on-failure: true
       - name: Frontend tests
         run: bun test
       - name: Frontend build

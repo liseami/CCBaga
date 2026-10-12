@@ -132,12 +132,13 @@ pub(crate) fn sources(root: &Path, policy: &Policy) -> Result<Vec<Source>, Strin
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
             Err(_) => return Err("身份数据无法完整读取；未修改任何数据。".into()),
         };
-        let canonical = canonicalize(&source.path).ok();
-        #[cfg(windows)]
-        let expected = dunce::simplified(&source.path).to_path_buf();
-        #[cfg(not(windows))]
-        let expected = source.path.clone();
-        if linked(&meta) || canonical.as_deref() != Some(expected.as_path()) {
+        #[cfg(test)]
+        if !linked(&meta) {
+            assert_eq!(canonicalize(&source.path).ok().as_deref(), Some(source.path.as_path()), "fixture source must be canonical");
+        }
+        if linked(&meta)
+            || canonicalize(&source.path).ok().as_deref() != Some(source.path.as_path())
+        {
             return Err("身份路径包含链接或特殊文件。".into());
         }
         crate::identities::private::safe(&source.path)?;
