@@ -4,7 +4,9 @@
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
 fn fixture_write(path: impl AsRef<std::path::Path>, bytes: impl AsRef<[u8]>) -> Result<(), String> {
-    private::write(path.as_ref(), bytes.as_ref())
+    private::write(path.as_ref(), bytes.as_ref())?;
+    assert_eq!(std::fs::canonicalize(path.as_ref()).unwrap(), path.as_ref(), "fixture must use canonical paths");
+    Ok(())
 }
 #[test]
 fn database_metadata_and_recovery_are_transactional() {

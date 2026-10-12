@@ -132,6 +132,10 @@ pub(crate) fn sources(root: &Path, policy: &Policy) -> Result<Vec<Source>, Strin
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
             Err(_) => return Err("身份数据无法完整读取；未修改任何数据。".into()),
         };
+        #[cfg(test)]
+        if !linked(&meta) {
+            assert_eq!(canonicalize(&source.path).ok().as_deref(), Some(source.path.as_path()), "fixture source must be canonical");
+        }
         if linked(&meta)
             || canonicalize(&source.path).ok().as_deref() != Some(source.path.as_path())
         {
