@@ -17,15 +17,26 @@ export const riskLabels:Record<string,string> = {safe:'可再生成',login:'需�
 export function presetIds(items:Item[], preset:Preset):string[] {
   return items.filter(i=>preset==='full'||i.risk==='safe'||(preset==='reset'&&i.risk==='login')).map(i=>i.id);
 }
+function normalizedPath(path:string):string {
+  return path.replaceAll('\\','/').replace(/\/+$|^\s+|\s+$/g,'');
+}
+export function isDescendantPath(parent:string, child:string):boolean {
+  const normalizedParent=normalizedPath(parent), normalizedChild=normalizedPath(child);
+  if(!normalizedParent||normalizedParent===normalizedChild)return false;
+  const windowsPath=parent.includes('\\')||child.includes('\\')||/^[A-Za-z]:\//.test(normalizedParent);
+  const comparableParent=windowsPath?normalizedParent.toLowerCase():normalizedParent;
+  const comparableChild=windowsPath?normalizedChild.toLowerCase():normalizedChild;
+  return comparableChild.startsWith(comparableParent+'/');
+}
 export function effectiveItems(items:Item[], ids:string[]):Item[] {
   const selected=items.filter(i=>ids.includes(i.id));
-  return selected.filter(i=>!selected.some(p=>p.id!==i.id&&i.path.startsWith(p.path+'/')));
+  return selected.filter(i=>!selected.some(p=>p.id!==i.id&&isDescendantPath(p.path,i.path)));
 }
 export function deselectItems(items:Item[], ids:string[], removed:string[]):string[] {
   const paths=items.filter(i=>removed.includes(i.id)).map(i=>i.path);
   return ids.filter(id=>!removed.includes(id)&&!paths.some(path=>{
     const parent=items.find(i=>i.id===id);
-    return !!parent&&path.startsWith(parent.path+'/');
+    return !!parent&&isDescendantPath(parent.path,path);
   }));
 }
 // ----- 扫描编号变化后按原路径恢复选择，避免静默扩大删除范围 -----

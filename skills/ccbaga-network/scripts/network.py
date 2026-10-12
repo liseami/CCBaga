@@ -22,6 +22,7 @@ from urllib.parse import urlencode, urlsplit
 
 SKILL = Path(__file__).resolve().parent.parent
 if os.name == 'nt':
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     import windows as win
 DEFAULT = Path.home() / '.config/ccbaga-network/connection.json'
 
@@ -334,7 +335,7 @@ def main():
         if args.action == 'deploy':
             wrapper = "umask 077; task=$(mktemp); trap 'rm -f \"$task\"' EXIT; cat > \"$task\"; bash \"$task\""
             output = execute(ssh_args(conf,key,args.config) + ['bash -c ' + shlex.quote(wrapper)],
-                             exports(conf) + (SKILL/'scripts/setup-vps.sh').read_text(), timeout=1800)
+                             exports(conf) + (SKILL/'scripts/setup-vps.sh').read_text(encoding='utf-8'), timeout=1800)
             link = subscription(output,conf['vps'])
             receipt = Path(args.config).expanduser().parent / ('subscription-' + time.strftime('%Y%m%d-%H%M%S') + '.json')
             private_write(receipt,json.dumps({'subscription':link,'expected_exit_ip':conf['expected_ip']})+'\n')

@@ -37,6 +37,18 @@ fn desktop_storage(root: &Path, desktop: &Path) -> Vec<Target> {
             ..target(root, "", "Desktop 会话与登录存储", "desktop", "login", "清除本地登录数据库与网页状态；保留桌面配置、MCP 和其他个人文件。")
         }).collect()
 }
+#[cfg(target_os = "windows")]
+fn win_dir(root: &Path, variable: &str, fallback: &str) -> PathBuf {
+    if super::home().ok().as_deref() == Some(root) {
+        if let Some(path) = std::env::var_os(variable)
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+        {
+            return path;
+        }
+    }
+    root.join(fallback)
+}
 pub(super) fn definitions(root: &Path) -> Vec<Target> {
     let mut result = Vec::new();
     for (name, title) in [
@@ -252,19 +264,6 @@ pub(super) fn definitions(root: &Path) -> Vec<Target> {
         result.push(item);
     }
     #[cfg(target_os = "windows")]
-    fn win_dir(root: &Path, variable: &str, fallback: &str) -> PathBuf {
-        if super::home().ok().as_deref() == Some(root) {
-            if let Some(path) = std::env::var_os(variable)
-                .map(PathBuf::from)
-                .filter(|p| p.is_absolute())
-            {
-                return path;
-            }
-        }
-        root.join(fallback)
-    }
-
-    #[cfg(target_os = "windows")]
     {
         result.retain(|item| !item.path.starts_with(root.join("Library")));
         let appdata = win_dir(root, "APPDATA", "AppData/Roaming");
@@ -418,23 +417,21 @@ pub(super) fn org_files(root: &Path, org: &str) -> Result<(Vec<PathBuf>, bool), 
         return Err("组织编号须为 8–100 位字母、数字、横线或下划线。".into());
     }
     let mut pending = Vec::new();
-    for relative in [
-        ".claude/projects",
-        ".claude/sessions",
-        "Library/Application Support/Claude/local_sessions",
-        "Library/Application Support/Claude/conversations",
-        "AppData/Roaming/Claude/local_sessions",
-        "AppData/Roaming/Claude/conversations",
-    ] {
-        if (cfg!(target_os = "linux") || cfg!(target_os = "windows"))
-            && relative.starts_with("Library/")
-        {
-            continue;
-        }
-        if !cfg!(target_os = "windows") && relative.starts_with("AppData/") {
-            continue;
-        }
-        let p = root.join(relative);
+    let mut candidates = vec![root.join(".claude/projects"), root.join(".claude/sessions")];
+    #[cfg(not(target_os = "windows"))]
+    candidates.extend([
+        root.join("Library/Application Support/Claude/local_sessions"),
+        root.join("Library/Application Support/Claude/conversations"),
+    ]);
+    #[cfg(target_os = "windows")]
+    {
+        let appdata = win_dir(root, "APPDATA", "AppData/Roaming");
+        candidates.extend([
+            appdata.join("Claude/local_sessions"),
+            appdata.join("Claude/conversations"),
+        ]);
+    }
+    for p in candidates {
         if canonicalize(&p).ok().as_deref() == Some(p.as_path()) {
             pending.push((p, 0));
         }

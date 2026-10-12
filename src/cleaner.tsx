@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import {useI18n} from "./i18n";
 import { AppDialog } from './dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { groups, riskLabels, effectiveItems, deselectItems, presetIds, reselectIds, formatBytes, type Scan, type Preset, type CleanResult, type Item } from './cleaner-model';
+import { groups, riskLabels, effectiveItems, deselectItems, presetIds, reselectIds, isDescendantPath, formatBytes, type Scan, type Preset, type CleanResult, type Item } from './cleaner-model';
 import { CleanupActivity, useCleanupActivity } from './cleaner-activity';
 import { FolderScope } from './cleaner-folder';
 import { useLiveProcesses } from './cleaner-processes';
@@ -124,7 +124,7 @@ export function CleanerPanel({ onFolderDrop, onBusy }: {
     }
     const processError = useLiveProcesses(!!review && !busy, setScan);
     function choose(mode: Preset) { setPreset(mode); setIds(presetIds(items, mode)); }
-    function isSelected(item: Item) { return ids.includes(item.id) || selected.some(parent => item.path.startsWith(parent.path + '/')); }
+    function isSelected(item: Item) { return ids.includes(item.id) || selected.some(parent => isDescendantPath(parent.path, item.path)); }
     function toggle(id: string, checked: boolean) { setPreset(null); setIds(old => checked ? [...new Set([...old, id])] : deselectItems(items, old, [id])); }
     async function clean() {
         if (!review)

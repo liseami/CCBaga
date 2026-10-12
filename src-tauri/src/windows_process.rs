@@ -220,6 +220,7 @@ fn claude_kind(image: &str, args: &[String]) -> Option<&'static str> {
     }
     let home = normalized(&std::env::var("USERPROFILE").ok()?);
     if path == format!("{home}\\.local\\bin\\claude.exe")
+        || path == format!("{home}\\.bun\\bin\\claude.exe")
         || (Path::new(&path).parent()
             == Some(Path::new(&format!(
                 "{home}\\.local\\share\\claude\\versions"
@@ -414,6 +415,11 @@ mod tests {
             &["--user-data-dir=C:\\空 格\\profile".into()],
             "C:\\空 格\\profile"
         ));
+        let home = std::env::var("USERPROFILE").unwrap();
+        assert_eq!(
+            claude_kind(&format!(r"{home}\.bun\bin\claude.exe"), &[]),
+            Some("Claude Code")
+        );
         assert!(current_sid().is_some());
         assert!(Handle::open(std::process::id(), false).is_some());
     }

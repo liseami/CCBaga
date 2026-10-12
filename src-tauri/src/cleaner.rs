@@ -724,6 +724,10 @@ fn identity(item: &Item, root: &Path) -> Result<(), String> {
     let in_scope = in_scope
         || (home().ok().as_deref() == Some(root)
             && targets::definitions(root).iter().any(|t| t.path == path));
+    #[cfg(target_os = "windows")]
+    let in_scope = in_scope
+        || (home().ok().as_deref() == Some(root)
+            && targets::definitions(root).iter().any(|t| t.path == path));
     if !in_scope || canonicalize(path).ok().as_deref() != Some(path) {
         return Err("路径已变化或超出当前用户范围。".into());
     }
