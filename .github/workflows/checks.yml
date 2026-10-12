@@ -78,9 +78,10 @@ jobs:
       - name: Network Skill offline tests
         run: python skills/ccbaga-network/scripts/test_network.py
       - name: Script syntax
-        run: |
-          bash -n skills/ccbaga-network/scripts/setup-vps.sh
-          bash -n scripts/claude-cli.sh
+        run: bash -n skills/ccbaga-network/scripts/setup-vps.sh
+      - name: Native CLI zsh syntax
+        if: runner.os != 'Windows'
+        run: zsh -n scripts/claude-cli.sh
       - name: Rust native tests
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml --features custom-protocol
       - name: Linux installation and RPM regression
