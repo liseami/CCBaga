@@ -48,6 +48,8 @@ try{
  const mid=await rail.evaluate(node=>node.scrollLeft);assert(mid<801);
  await page.waitForFunction(()=>Math.abs(document.querySelector('.identity-card-rail')!.scrollLeft-800)<3);checks++;
  await rail.evaluate(node=>{node.scrollLeft=0;});
+ await page.waitForFunction(()=>document.querySelector('.identity-card-rail')!.scrollLeft<1);
+ await page.mouse.move(10,10);
  await current.getByRole('button',{name:'直接删除',exact:true}).click();
   let dialog=page.getByRole('alertdialog');await dialog.waitFor();
  assert.match(await dialog.innerText(),/不可撤销/);assert.equal(await dialog.getByRole('button',{name:'确认直接删除'}).isEnabled(),false);

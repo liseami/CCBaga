@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 原生身份命令、保留策略、Motion 弹簧/浏览器媒体订阅、共享确认窗/进度与 CLI 维护。
- * [OUTPUT]: 空/当前/暂存身份的竖式立体工牌，顶部绿光标记当前状态；弹簧横滚、悬停视差、账号显示与永久删除 Alert 警告（默认取消、需勾选确认）。
+ * [OUTPUT]: 空/当前/暂存身份的竖式立体工牌，顶部绿光标记当前状态；弹簧横滚、悬停视差（操作区冻结动态）、账号显示与永久删除 Alert 警告（默认取消、需勾选确认）。
  * [POS]: 身份管理 GUI；只呈现脱敏元数据，身份正文留在原生保险库。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -153,8 +153,10 @@ function IdentityCard({className,children,label}:{className:string;children:Reac
  const tiltX=useMotionValue(0),tiltY=useMotionValue(0),lift=useMotionValue(0);
  const rotateX=useSpring(tiltX,{stiffness:240,damping:22}),rotateY=useSpring(tiltY,{stiffness:240,damping:22}),y=useSpring(lift,{stiffness:240,damping:22});
  useEffect(()=>{if(reduced){tiltX.jump(0);tiltY.jump(0);lift.jump(0);rotateX.jump(0);rotateY.jump(0);y.jump(0);}},[reduced,tiltX,tiltY,lift,rotateX,rotateY,y]);
+ const freeze=()=>{rotateX.jump(rotateX.get());rotateY.jump(rotateY.get());y.jump(y.get());};
  return <motion.article className={className} aria-label={label} style={{rotateX,rotateY,y,transformPerspective:850}}
-  onPointerMove={event=>{if(reduced||event.pointerType!=='mouse')return;const box=event.currentTarget.getBoundingClientRect();tiltX.set(-(event.clientY-box.top-box.height/2)/box.height*9);tiltY.set((event.clientX-box.left-box.width/2)/box.width*9);lift.set(-4);}}
+  onPointerDown={freeze}
+  onPointerMove={event=>{if(reduced||event.pointerType!=='mouse')return;if((event.target as Element).closest('button')){freeze();return;}const box=event.currentTarget.getBoundingClientRect();tiltX.set(-(event.clientY-box.top-box.height/2)/box.height*9);tiltY.set((event.clientX-box.left-box.width/2)/box.width*9);lift.set(-4);}}
   onPointerLeave={()=>{tiltX.set(0);tiltY.set(0);lift.set(0);}}>
   {children}
  </motion.article>;

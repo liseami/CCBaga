@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 原生层返回的脱敏清理快照。
- * [OUTPUT]: 分类、预设选择、父子去重、子项排除、重新扫描选择映射与规模格式化。
- * [POS]: 清理页面的纯数据规则；预览与执行使用同一份选择。
+ * [OUTPUT]: 分类、预设选择、跨平台路径父子去重、子项排除、重新扫描选择映射与规模格式化。
+ * [POS]: 身份页复用规模格式化；旧清理快照选择仅保留纯逻辑回归。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 export type Item = {id:string;path:string;title:string;group:string;risk:string;impact:string;bytes:number;files:number;exact:boolean;keys:string[]};
@@ -17,15 +17,23 @@ export const riskLabels:Record<string,string> = {safe:'可再生成',login:'需�
 export function presetIds(items:Item[], preset:Preset):string[] {
   return items.filter(i=>preset==='full'||i.risk==='safe'||(preset==='reset'&&i.risk==='login')).map(i=>i.id);
 }
+export function isDescendantPath(parent:string, child:string):boolean {
+  // ----- POSIX 的反斜杠和空格是文件名；只折叠明确的 Windows 路径 -----
+  const windowsPath=/^(?:[A-Za-z]:[\\/]|\\\\)/.test(parent);
+  const normalize=(path:string)=>windowsPath?path.replaceAll('\\','/').replace(/\/+$/,'').toLowerCase():path.replace(/\/+$/,'');
+  const a=normalize(parent),b=normalize(child);
+  if(a===b)return false;
+  return (a||parent==='/')&&b.startsWith(a+'/')?true:false;
+}
 export function effectiveItems(items:Item[], ids:string[]):Item[] {
   const selected=items.filter(i=>ids.includes(i.id));
-  return selected.filter(i=>!selected.some(p=>p.id!==i.id&&i.path.startsWith(p.path+'/')));
+  return selected.filter(i=>!selected.some(p=>p.id!==i.id&&isDescendantPath(p.path,i.path)));
 }
 export function deselectItems(items:Item[], ids:string[], removed:string[]):string[] {
   const paths=items.filter(i=>removed.includes(i.id)).map(i=>i.path);
   return ids.filter(id=>!removed.includes(id)&&!paths.some(path=>{
     const parent=items.find(i=>i.id===id);
-    return !!parent&&path.startsWith(parent.path+'/');
+    return !!parent&&isDescendantPath(parent.path,path);
   }));
 }
 // ----- 扫描编号变化后按原路径恢复选择，避免静默扩大删除范围 -----

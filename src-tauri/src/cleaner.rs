@@ -1,4 +1,4 @@
-// [INPUT]: Claude 白名单、所选文件夹发现、配置变换、原子写入、官方原生 CLI 版本路径及 macOS/Linux 平台边界。
+// [INPUT]: Claude 白名单、所选文件夹发现、配置变换、原子写入、官方原生 CLI 版本路径及 macOS/Linux/Windows 白名单路径边界。
 // [OUTPUT]: 全机/文件夹元数据扫描、旧组织发现、实时 Claude 进程检查与结束全部已识别进程；CLI 安装管理共用互斥锁与进程核验。
 // [POS]: 白名单与进程共用边界；身份操作由 identities 编排，历史直接清理只编译进测试。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -726,6 +726,10 @@ fn identity(item: &Item, root: &Path) -> Result<(), String> {
     let path = Path::new(&item.path);
     let in_scope = path.starts_with(root);
     #[cfg(target_os = "linux")]
+    let in_scope = in_scope
+        || (home().ok().as_deref() == Some(root)
+            && targets::definitions(root).iter().any(|t| t.path == path));
+    #[cfg(target_os = "windows")]
     let in_scope = in_scope
         || (home().ok().as_deref() == Some(root)
             && targets::definitions(root).iter().any(|t| t.path == path));

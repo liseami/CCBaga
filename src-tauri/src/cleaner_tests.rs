@@ -1,4 +1,4 @@
-// [INPUT]: 隔离临时目录、脱敏配置、清理事务与当前用户官方原生 CLI 版本路径。
+// [INPUT]: 隔离临时目录/Windows 子进程 AppData、脱敏配置、清理事务与当前用户官方原生 CLI 版本路径。
 // [OUTPUT]: 白名单、文件夹范围、配置保留、组织检索、直接删除、大目录完整统计、读失败拒绝快照、快照保护、真实日志次序与原生版本/可丢弃 Node CLI 进程的识别/终止/隔离验证。
 // [POS]: 仅操作测试数据，进程样本由本机编译并握手确认启动，避免重用 Apple 平台二进制，不访问现有 Claude 数据。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -627,4 +627,42 @@ fn unreadable_directory_is_reported_and_never_offered_for_deletion() {
     assert!(!scan.items.iter().any(|item| item.path == f.0.join(".claude/cache").to_string_lossy()));
     assert!(scan.warnings.iter().any(|warning| warning.contains("目录无法完整读取") && warning.contains("blocked")));
     assert!(blocked.join("data").exists());
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_redirected_appdata_remains_whitelisted() {
+    // ----- 子进程隔离环境变量，避免并行回归改变真实用户目录 -----
+    if std::env::var_os("CC_REDIRECTED_APPDATA_FIXTURE").is_none() {
+        let home = Fixture::new();
+        let outside = Fixture::new();
+        outside.file("roaming/Claude/Cookies", "disposable cookie fixture");
+        outside.file("roaming/Claude/local_sessions/record.json", r#"{"org":"org-fixture-123"}"#);
+        outside.file("local/claude-cli-nodejs/cache", "disposable cache fixture");
+        outside.file("unrelated/data", "keep");
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "cleaner::tests::windows_redirected_appdata_remains_whitelisted", "--nocapture"])
+            .env("CC_REDIRECTED_APPDATA_FIXTURE", &outside.0)
+            .env("USERPROFILE", &home.0).env("HOME", &home.0)
+            .env("APPDATA", outside.0.join("roaming"))
+            .env("LOCALAPPDATA", outside.0.join("local"))
+            .status().unwrap();
+        assert!(status.success());
+        assert_eq!(fs::read_to_string(outside.0.join("unrelated/data")).unwrap(), "keep");
+        return;
+    }
+    let root = home().unwrap();
+    let outside = PathBuf::from(std::env::var_os("CC_REDIRECTED_APPDATA_FIXTURE").unwrap());
+    let scan = current_scan(&root, None).unwrap();
+    let cookie = scan.items.iter().find(|item| Path::new(&item.path) == outside.join("roaming/Claude/Cookies")).unwrap();
+    assert!(identity(cookie, &root).is_ok());
+    let mut unrelated = cookie.clone();
+    unrelated.path = outside.join("unrelated/data").to_string_lossy().into();
+    assert!(identity(&unrelated, &root).is_err());
+    let (files, complete) = targets::org_files(&root, "org-fixture-123").unwrap();
+    assert!(complete);
+    assert_eq!(files, vec![outside.join("roaming/Claude/local_sessions/record.json")]);
+    let sources = super::identity::sources(&root, &crate::identities::Policy::default()).unwrap();
+    assert!(sources.iter().any(|source| source.path == Path::new(&cookie.path)));
+    assert!(sources.iter().all(|source| super::identity::allowed(&root, source)));
 }

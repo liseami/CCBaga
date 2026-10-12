@@ -9,6 +9,7 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,30 @@ class NetworkTests(unittest.TestCase):
     def test_fixed_provider_destinations(self):
         self.assertEqual(n.provider_url('dmit'), 'https://www.dmit.io/aff.php?aff=28800')
         self.assertEqual(n.provider_url('webshare'), 'https://www.webshare.io/?referral_code=qlm1mt9xibc9')
+
+    def test_deploy_payload_is_read_as_utf8(self):
+        payload = (n.SKILL/'scripts/setup-vps.sh').read_text(encoding='utf-8')
+        self.assertIn('set -euo pipefail', payload)
+
+    def bash_program(self):
+        if os.name != 'nt':
+            return '/bin/bash'
+        candidates = [
+            Path(os.environ.get('ProgramFiles', r'C:\Program Files'))/'Git/bin/bash.exe',
+            Path(os.environ.get('ProgramFiles', r'C:\Program Files'))/'Git/usr/bin/bash.exe',
+            Path(os.environ.get('LOCALAPPDATA', ''))/'Programs/Git/bin/bash.exe',
+        ]
+        git = shutil.which('git')
+        if git:
+            git_root = Path(git).resolve().parent.parent
+            candidates.extend([git_root/'usr/bin/bash.exe', git_root/'bin/bash.exe'])
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+        found = shutil.which('bash') or shutil.which('bash.exe')
+        if found:
+            return found
+        self.skipTest('Git Bash is required for the quoted-stdin shell boundary test')
 
     def test_real_key_pairing_private_copy_and_cleanup(self):
         pem = self.root/'id_rsa.pem'; pub = self.root/'id_rsa.pub'; ppk = self.root/'id_rsa.ppk'
@@ -84,7 +109,7 @@ class NetworkTests(unittest.TestCase):
     def test_credentials_travel_only_in_quoted_stdin(self):
         conf = self.config(); marker = self.root/'injected'
         conf['home_pass'] = "p'$(touch " + str(marker) + ')'
-        bash = str(Path(os.environ.get('ProgramFiles', r'C:\Program Files'))/'Git/bin/bash.exe') if os.name == 'nt' else '/bin/bash'
+        bash = self.bash_program()
         out = n.execute([bash,'-s'],n.exports(conf)+'printf %s "$HOME_PASS"\n')
         self.assertEqual(out,conf['home_pass']); self.assertFalse(marker.exists())
         args = n.ssh_args(conf,Path('/tmp/key'),self.root/'connection.json')
