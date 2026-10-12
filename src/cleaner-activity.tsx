@@ -17,7 +17,7 @@ export type Progress = {
     total: number | null;
     elapsed_ms: number;
 };
-type Kind = 'scan' | 'clean' | 'stop' | 'system' | 'browser' | 'cli';
+type Kind = 'scan' | 'clean' | 'stop' | 'system' | 'browser' | 'cli' | 'identity';
 type Activity = {
     kind: Kind;
     started: number;
@@ -25,7 +25,7 @@ type Activity = {
     running: boolean;
     failed: boolean;
 };
-const labels: Record<string, string> = { validate: '检查', clean: '逐项清理', verify: '复查', scan: '深度扫描', stop: '进程检查', system: '应用设置', browser: '浏览器操作', cli: 'CLI 安装', done: '结果' };
+const labels: Record<string, string> = { delete:'直接删除',archive:'身份暂存',switch:'身份切换',identity:'身份管理',validate: '检查', clean: '逐项清理', verify: '复查', scan: '深度扫描', stop: '进程检查', system: '应用设置', browser: '浏览器操作', cli: 'CLI 安装', done: '结果' };
 export function useCleanupActivity() {
     const [state, setState] = useState<Activity | null>(null);
     const sequence = useRef(0);
@@ -55,7 +55,7 @@ export function useCleanupActivity() {
         sequence.current++;
         began.current = performance.now();
         setState({ kind, started: began.current, entries: [], running: true, failed: false });
-        log(kind === 'clean' ? 'validate' : kind, 'running', kind === 'clean' ? "已提交所选清单，等待快照核验。" : kind === 'scan' ? "开始扫描本地数据。" : kind === 'system' ? "开始应用电脑设置。" : kind === 'browser' ? "开始浏览器操作。" : kind === 'cli' ? "开始 Claude Code CLI 安装管理。" : "检查并结束已确认的 Claude 进程。");
+        log(kind === 'clean' ? 'validate' : kind, 'running', kind === 'clean' ? "已提交所选清单，等待快照核验。" : kind === 'scan' ? "开始扫描本地数据。" : kind === 'system' ? "开始应用电脑设置。" : kind === 'browser' ? "开始浏览器操作。" : kind === 'identity' ? "开始本地身份操作。" : kind === 'cli' ? "开始 Claude Code CLI 安装管理。" : "检查并结束已确认的 Claude 进程。");
         return channel();
     }
     function finish(success: boolean, message: string) {
@@ -98,7 +98,7 @@ export function CleanupActivity({ activity }: {
     const determinate = activity.running && (last?.stage === 'clean' || last?.stage === 'browser') && !!last?.total;
     const fraction = determinate ? Math.min(100, 100 * (last?.current || 0) / (last?.total || 1)) : 0;
     return <Panel flat ref={panel} className={cn('cleanup-activity', activity.running && 'activity-running', activity.failed && 'activity-failed')} aria-label={t("操作活动日志")}>
-    <div className="activity-header"><div>{activity.running ? <ArrowClockwiseIcon className="spin" size={17}/> : <span className="activity-result-symbol">{activity.failed ? '!' : '✓'}</span>}<strong>{activity.kind === 'clean' ? t("清理执行记录") : activity.kind === 'stop' ? t("进程操作记录") : activity.kind === 'system' ? t("电脑设置记录") : activity.kind === 'browser' ? t("浏览器操作记录") : activity.kind === 'cli' ? t("CLI 安装记录") : t("扫描记录")}</strong><span className="activity-state">{activity.running ? t("运行中") : activity.failed ? t("已停止 · 请检查") : t("已完成")}</span></div><div><time>{(elapsed / 1000).toFixed(1)} s</time><Button variant="ghost" size="small" type="button" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? t("收起日志") : t("展开日志")} [{activity.entries.length}]</Button></div></div>
+    <div className="activity-header"><div>{activity.running ? <ArrowClockwiseIcon className="spin" size={17}/> : <span className="activity-result-symbol">{activity.failed ? '!' : '✓'}</span>}<strong>{activity.kind === 'clean' ? t("清理执行记录") : activity.kind === 'stop' ? t("进程操作记录") : activity.kind === 'system' ? t("电脑设置记录") : activity.kind === 'browser' ? t("浏览器操作记录") : activity.kind === 'identity' ? t("身份操作记录") : activity.kind === 'cli' ? t("CLI 安装记录") : t("扫描记录")}</strong><span className="activity-state">{activity.running ? t("运行中") : activity.failed ? t("已停止 · 请检查") : t("已完成")}</span></div><div><time>{(elapsed / 1000).toFixed(1)} s</time><Button variant="ghost" size="small" type="button" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? t("收起日志") : t("展开日志")} [{activity.entries.length}]</Button></div></div>
     <div className={`activity-progress ${activity.running && !determinate ? 'indeterminate' : ''}`} role="progressbar" aria-label={t(labels[lastStage || 'scan'] || "操作进度")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={determinate ? Math.round(fraction) : !activity.running && !activity.failed ? 100 : undefined}><span style={determinate ? { width: `${fraction}%` } : !activity.running && !activity.failed ? { width: '100%' } : { width: 0 }}/></div>
     <div className="activity-current" role="status" aria-live="polite"><span>{t(last?.message || "准备中…")}{activity.running && <i className="activity-cursor">_</i>}</span>{count && <strong>{count}</strong>}</div>
     {open && <div className="activity-log" ref={logBox} role="log" aria-label={t("本次操作日志")} aria-live="off" onScroll={() => { const box = logBox.current; if (box)

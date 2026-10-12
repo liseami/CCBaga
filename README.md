@@ -8,7 +8,7 @@
   <img src="docs/brand-logos.svg" width="320" height="149" alt="CCBaga-A and CCBaga-B logos, side by side" />
   <h1>CCBaga</h1>
   <p><strong>A native macOS, Linux and Windows toolkit for a cleaner workspace and an environment you can verify.</strong></p>
-  <p>Claude cleanup · Browser fingerprints · System settings · Network Skill</p>
+  <p>Claude identities · Browser fingerprints · System settings · Network Skill</p>
   <p>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-e8a181?style=flat-square" alt="MIT license" /></a>
     <img src="https://img.shields.io/badge/macOS-12%2B-111827?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS 12 and later" />
@@ -31,13 +31,13 @@
 
 CCBaga brings local maintenance and environment setup into one focused desktop workflow. Inspect Claude data before removing it, rotate your companion browser's fingerprint and restart it, align system settings with a selected region, and compare real browser readings with the machine and network exit.
 
-Two applications work together: **CCBaga-A** owns native operations; **CCBaga-B** runs an isolated Fingerprint Chromium profile. Browser measurements return to the cleaner through a local session. Changing a setting and verifying its effect are separate steps.
+Two applications work together: **CCBaga-A** owns native operations; **CCBaga-B** runs an isolated Fingerprint Chromium profile. Browser measurements return to the host through a local session. Changing a setting and verifying its effect are separate steps.
 
 ## Features
 
 <table>
   <tr>
-    <td width="33%"><strong>Local Claude cleanup</strong><br /><br />Review caches, account traces, sessions, configuration remnants and existing backups. Select exactly what to remove.</td>
+    <td width="33%"><strong>Local Claude identities</strong><br /><br />Archive the current local identity, switch to a saved identity or start with an empty workspace. Choose what stays shared and what moves with each identity.</td>
     <td width="33%"><strong>Fingerprint &amp; restart</strong><br /><br />Generate a fresh seed, apply the selected region's language and timezone, then restart the companion browser.</td>
     <td width="33%"><strong>Real environment checks</strong><br /><br />Compare browser and machine readings with the actual network exit. Passing measured checks produces a green page and a large checkmark.</td>
   </tr>
@@ -48,7 +48,7 @@ Two applications work together: **CCBaga-A** owns native operations; **CCBaga-B*
   </tr>
 </table>
 
-**One region selector. Four everyday actions.** Easy setup puts browser cache cleanup, fingerprint rotation, timezone/language reset and Claude cleanup on the same page. The sidebar keeps advanced controls in Network, Claude cleanup, Browser and Computer.
+**One region selector. Four everyday actions.** Easy setup puts browser cache cleanup, fingerprint rotation, timezone/language reset and identity archiving on the same page. The sidebar keeps advanced controls in Network, Claude identities, Browser and Computer.
 
 The interface supports **English and Chinese**, with shared YAML catalogs. Switching the interface language does not change the computer or browser language.
 
@@ -66,7 +66,7 @@ Download the official installer from [GitHub Releases](https://github.com/liseam
 
 | Application | Installed bundle | Role |
 | --- | --- | --- |
-| CCBaga-A | `CCBaga-A.app` | Cleanup, system settings and environment verification |
+| CCBaga-A | `CCBaga-A.app` | Identity management, system settings and environment verification |
 | CCBaga-B | `CCBaga-B.app` | Companion browser with a dedicated profile |
 
 Download **one DMG**; it contains both applications. There is no separate browser download. The installer uses the same pixel-art style as this README.
@@ -89,14 +89,17 @@ On **macOS**, in-app updates replace A; use the latest DMG to update both apps. 
 
 Open **Easy setup**, select a country or region, then choose an action. Browser fingerprint rotation closes and restarts CCBaga-B, so save unfinished browser work first. Selecting a region changes language, timezone and regional settings; it does **not** change your public IP.
 
-### Claude cleanup
+### Claude identities
 
-Open **Claude cleanup** to scan and review local data. Use cache-only cleanup for regenerable files, login reset for account traces, or select a broader scope explicitly. A folder can also be dropped into the app for a scoped scan.
+Open **Claude identities** to manage the local state of both Claude Code and Claude Desktop. Choose **Empty identity** to archive the current state before leaving a fresh workspace, or choose a saved identity to restore it. Every switch saves the outgoing identity first.
 
-If Claude is running, the confirmation flow can stop all recognized Claude processes and rescan. The latest scan must be reviewed before deletion. CLI uninstall and reinstall are separate operations and preserve settings, skills, sessions and project files.
+Expand **Keep in workspace** to choose retention for skills and commands, plugins, MCP configuration, personal settings, project records, conversation history, and caches/logs. Login data always moves with an archived identity. Project source outside Claude's own data directories is not scanned. A confirmation names the outgoing identity and summarizes what stays in the workspace before closing recognized Claude processes.
 
-> [!WARNING]
-> Confirmed cleanup permanently deletes the selected files, including selected existing backups. It does not use Trash, create recovery copies or provide undo. Stopping Claude processes can interrupt unsaved work.
+Portrait identity cards scroll horizontally with spring motion and subtle hover tilt. The white empty identity stays first, followed by the current local account with available name, email and organization information. **Archive** saves the current state and leaves an empty identity. Select a saved card to restore that identity. **Direct delete** removes selected current data without creating an archive; deleting a saved card removes only that archive. Both deletion actions require an explicit confirmation.
+
+A local SQLite database tracks names, policies and recovery state. Data is compressed into an authenticated, encrypted `.baga` container outside Claude's working directories. Archive verification precedes workspace changes; failed switches roll back, and an interrupted switch exposes recovery. Recovery also saves the pre-recovery state. Ordinary archive tools cannot open this container directly; filesystem ownership or administrator access is not an absolute secrecy boundary.
+
+Expired or revoked server-side logins may need authentication again. The app manages the default local directories, not every custom Claude profile. The program-maintenance controls uninstall or reinstall Claude Code without removing the identity vault.
 
 ### Browser verification
 
@@ -184,7 +187,7 @@ MACOSX_DEPLOYMENT_TARGET=12.0 \
   bun run tauri build --bundles app --features custom-protocol
 ```
 
-The cleaner bundle is written to `src-tauri/target/release/bundle/macos/CCBaga-A.app`. The companion bundle remains at `browser-runtime/Browser.app` until copied to Applications as `CCBaga-B.app`.
+The host bundle is written to `src-tauri/target/release/bundle/macos/CCBaga-A.app`. The companion bundle remains at `browser-runtime/Browser.app` until copied to Applications as `CCBaga-B.app`.
 
 Production builds require `custom-protocol` to load the embedded UI. Compilation without it fails explicitly, preventing an installed app from depending on the development server.
 
@@ -202,17 +205,19 @@ bash -n skills/ccbaga-network/scripts/setup-vps.sh
 
 Pull requests run the existing frontend, native Rust, offline Skill and npm skill-installation checks on Ubuntu, macOS and Windows, plus the relevant platform regression tests. The workflow uses a read-only token, no signing secrets and no artifact uploads; it does not publish releases or download the browser engine. Complete engine and installer validation remains part of the separate delivery checks.
 
+The identity UI simulation uses 40 fictitious accounts, mocked Tauri IPC and an isolated headless context with external requests blocked. It covers card navigation, retention choices, switching, irreversible-delete alerts, failure recovery and both languages. Run `bun run test:identities` after preparing the pinned browser engine. Native archive tests use temporary SQLite databases and files; the macOS credential bridge is also checked against a separate disposable Keychain.
+
 Automated tests exercise disposable fixtures and local test servers. They do not deploy a real VPS, delete your Claude account data or perform administrator-authorized system changes. Real SSH connectivity, client-side TUN routing and permission-dependent operations require validation in the target environment.
 
 ## Data & permissions
 
-- **Cleanup is local.** It targets recognized Claude data; project source, skills, plugins, hooks, commands and MCP settings are preserved. Cloud-side account records are outside its scope.
-- **Secrets stay out of UI logs.** The apps have no SSH key picker or server deployment command. Keychain cleanup reads item attributes, not password contents. The separate Skill uses private local files and temporary private PEM copies (0600 on POSIX, verified user-only NTFS ACLs on Windows); data supplied to your coding agent is subject to that agent provider’s handling.
+- **Identities are local.** Login state is archived before switching. You choose which personal data stays in the workspace and which is stored with the identity. Actual project source and cloud-side account records are outside this scope.
+- **Secrets stay out of UI logs.** The apps have no SSH key picker or server deployment command. After explicit confirmation, the native identity vault reads only the recognized default Claude credentials needed for restoration; credential contents never enter the GUI, command-line arguments or network. The separate Skill uses private local files and temporary private PEM copies (0600 on POSIX, verified user-only NTFS ACLs on Windows); data supplied to your coding agent is subject to that agent provider’s handling.
 - **Network checks make real requests.** Exit detection uses `ipwho.is` with `ipapi.co` as a fallback on the same route. IP location is a service estimate.
 - **Remote changes are explicit.** The separate Skill contacts only the VPS you provide after server-change approval. Required credentials remain in private local/server configuration, outside Git and public logs.
 - **Permissions are feature-specific.** Timezone changes require macOS administrator authorization. Keychain access follows system prompts. Location controls may require Accessibility permission or a manual action in System Settings.
 
-Custom `CLAUDE_CONFIG_DIR` locations are not automatically included in the default cleanup scan. The app reports this limitation rather than silently claiming they were cleaned.
+Custom `CLAUDE_CONFIG_DIR` locations are not automatically included in the default identity scope. The app reports this limitation rather than silently claiming they were switched.
 
 ## Contributing
 

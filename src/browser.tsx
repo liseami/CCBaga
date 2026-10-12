@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Cromma UI、原生浏览器命令、带回报时间的真实观测事件、共用地区契约与共享活动日志和 YAML 文案。
  * [OUTPUT]: 指纹配置、独立浏览器启动、缓存/站点数据清理、目标地区与机器一致性核验、任务锁状态与 CCBaga-B 一键设为默认浏览器（系统确认）。
- * [POS]: 浏览器交互边界；只展示配置、操作与真实观测，页面加载只读，系统对齐和登录删除必须由用户选择。
+ * [POS]: 浏览器交互边界；只展示配置、操作与真实观测，页面加载只读，系统对齐和登录删除必须由用户选择；永久站点删除使用 AlertDialog 警告。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { Button, Input, Select, Checkbox, Panel, PanelHeader } from 'cromma-ui';
@@ -108,7 +108,7 @@ export function BrowserPanel({ onBusy }: {
     </div></Panel></div>
     <Panel className="browser-checks"><PanelHeader title={t("{v0} · 实际观测", { v0: t(state?.region?.label || "自定义环境") })} actions={<span className="system-card-number">{state?.report_received_at ? t("已连接 · 回报 {v0}", { v0: new Date(state.report_received_at).toLocaleTimeString(locale==='zh'?'zh-CN':'en-US') }) : state?.running ? t("等待浏览器回报") : t("浏览器未运行")}</span>}/><div className="browser-check-grid">{state?.checks.map(x => <div className={`browser-check check-${x.status}`} key={t(x.title)}><span aria-label={t(x.status==='ok'?"已核验":x.status==='mismatch'?"存在冲突":"尚未核验")}>{x.status === 'ok' ? '✓' : x.status === 'mismatch' ? '!' : '—'}</span><div><strong>{t(x.title)}</strong><p>{t(x.detail)}</p></div></div>)}</div>{state?.report?.error && <p className="system-feedback error">{t("浏览器出口检测：")}{t(state.report.error)}</p>}</Panel>
     <CleanupActivity activity={activity.state}/>
-    <AppDialog open={confirm !== null} onOpenChange={v => { if (!v)
-        setConfirm(null); }} title={confirm === 'site' ? t("直接清空站点数据") : t("对齐美国系统环境")} description={confirm === 'site' ? t("删除独立浏览器的缓存、Cookie、站点存储与恢复会话，不创建备份。") : t("先核验代理实际在美国，再将机器时区设为出口时区、首选语言设为 en-US、区域设为 en_US，并关闭系统定位。时区可能需要管理员授权。")} footer={<><Button variant="secondary" onClick={() => setConfirm(null)}>{t("取消")}</Button><Button variant="ink" onClick={() => { const action = confirm; setConfirm(null); void act(action === 'site' ? 'browser_clear' : 'browser_align', action === 'site' ? { includeSiteData: true } : {}); }}>{confirm === 'site' ? t("直接删除") : t("检测并应用")}</Button></>}><p>{confirm === 'site' ? t("书签、已保存密码和项目文件保留。") : t("不会修改代理节点。若机器与浏览器出口不同，需在代理工具中统一系统路由。更改系统语言后，部分应用需重新启动或注销。")}</p></AppDialog>
+    <AppDialog alert={confirm==='site'} className={confirm==='site'?'identity-delete-alert':undefined} open={confirm !== null} onOpenChange={v => { if (!v)
+        setConfirm(null); }} title={confirm === 'site' ? t("直接清空站点数据") : t("对齐美国系统环境")} description={confirm === 'site' ? t("删除独立浏览器的缓存、Cookie、站点存储与恢复会话，不创建备份。") : t("先核验代理实际在美国，再将机器时区设为出口时区、首选语言设为 en-US、区域设为 en_US，并关闭系统定位。时区可能需要管理员授权。")} footer={<><Button variant="secondary" data-dialog-cancel onClick={() => setConfirm(null)}>{t("取消")}</Button><Button className={confirm==='site'?'identity-delete-button':undefined} variant="ink" onClick={() => { const action = confirm; setConfirm(null); void act(action === 'site' ? 'browser_clear' : 'browser_align', action === 'site' ? { includeSiteData: true } : {}); }}>{confirm === 'site' ? t("直接删除") : t("检测并应用")}</Button></>}>{confirm==='site'&&<div className="identity-delete-warning"><span aria-hidden="true">!</span><strong>{t("警告：此操作不可撤销，不会创建新备份。")}</strong></div>}<p>{confirm === 'site' ? t("书签、已保存密码和项目文件保留。") : t("不会修改代理节点。若机器与浏览器出口不同，需在代理工具中统一系统路由。更改系统语言后，部分应用需重新启动或注销。")}</p></AppDialog>
   </section>;
 }

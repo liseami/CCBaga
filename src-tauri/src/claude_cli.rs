@@ -234,7 +234,11 @@ mod tests {
         fn run(&self, action: &str) -> Result<CliStatus, String> {
             let mut command = Command::new("/bin/zsh");
             command
-                .args(["-fc", "source /dev/stdin", "fixture", action])
+                .env_clear()
+                .args(["-fc", "PATH=\"$CC_TEST_BIN\"; source /dev/stdin", "fixture", action])
+                .env("HOME", &self.0)
+                .env("ZDOTDIR", &self.0)
+                .env("LANG", "en_US.UTF-8")
                 .env("CC_CLI_USER_DIR", &self.0)
                 .env("PATH", self.0.join("bin"))
                 .env("CC_TEST_ROOT", self.0.join("lib/node_modules"))

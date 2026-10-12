@@ -87,10 +87,10 @@ This installs application files under `~/.local/share/ccbaga-install`, creates A
 
 | Feature | Linux behavior |
 | --- | --- |
-| Claude Code cleanup | Same snapshot, owner, symlink and process checks; preserves skills, plugins and project source. |
+| Claude identities | SQLite metadata and encrypted local archives; snapshot, owner, symlink and process checks. Users choose which personal data stays in the workspace. Project source is not scanned. |
 | Paths | Shared `.claude` targets plus Claude CLI cache in `XDG_CACHE_HOME` (default `~/.cache`); Claude Desktop cache/logs in `XDG_CONFIG_HOME` (default `~/.config`). Absolute custom XDG paths are supported. |
 | Third-party Claude Desktop | Only explicit cache/log paths are scanned. Full desktop account reset is intentionally unavailable because Linux desktop distributions have differing layouts. |
-| Credentials | File-based CLI credentials are selectable. Secret Service/KWallet cleanup and unlock are unavailable and produce an explicit warning/error. No empty-success keyring result is fabricated. |
+| Credentials | Default file-based CLI credentials move with the identity. Secret Service/KWallet cleanup and unlock are unavailable and produce an explicit warning/error. No empty-success keyring result is fabricated. |
 | CLI install management | Existing native and npm flows, including nvm. Requires zsh; Homebrew cask detection runs only on macOS. |
 | Browser | Pinned Linux fingerprint engine, isolated Default profile, cache/site-data separation, rotation and real observations. Linux platform is checked; Chromium does not expose the kernel release through UA client hints, so that field is not compared with `uname`. |
 | Network route | Use TUN or the explicit browser proxy. Native exit probes can use proxy environment variables; GNOME/KDE desktop proxy settings and PAC are not independently discovered. Proxy credentials stay in native code. |

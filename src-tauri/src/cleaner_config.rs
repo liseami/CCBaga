@@ -17,11 +17,12 @@ fn sensitive_key(key: &str) -> bool {
         "HTTP_PROXY" | "HTTPS_PROXY" | "ALL_PROXY" | "NO_PROXY" | "CLAUDE_CODE_OAUTH_TOKEN"
     ) || key.starts_with("ANTHROPIC_")
 }
-const ACCOUNT_KEYS: &[&str] = &[
+pub(super) const ACCOUNT_KEYS: &[&str] = &[
     "userID",
     "machineID",
     "anonymousId",
     "oauthAccount",
+    "primaryApiKey",
     "additionalModelCostsCache",
     "additionalModelOptionsCache",
     "autoCompactWindowsCache",

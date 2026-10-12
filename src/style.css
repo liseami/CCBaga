@@ -1,6 +1,6 @@
 /**
  * [INPUT]: index.css 的系统字体、Cromma UI 控件、Laper 最新 LandingRailLayout/LineworkTokens/HeroDotBackground 几何与 Cromma 控件令牌。
- * [OUTPUT]: 黑白斜纹外框与点阵标题、极简侧栏、满宽细线内容网格、紧凑执行结果、清理预览、CLI 管理、三步网络入口、AI 分段/安装提示词与主程序更新布局，实测通过页面的整页绿色背景和大对勾。
+ * [OUTPUT]: 黑白斜纹外框与点阵标题、极简侧栏、满宽细线内容网格、紧凑执行结果、有叠层厚度与当前身份挂孔绿光的身份横向卡片、当前账号信息、折叠保留策略/暂存确认、CLI 管理、三步网络入口、AI 分段/安装提示词与主程序更新布局，实测通过页面的整页绿色背景和大对勾。
  * [POS]: 应用布局层；信息只分标题、操作和结果，删除装饰文案与重复说明区；按钮边缘、内高光、阴影和悬停效果沿用 Cromma UI。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -236,12 +236,12 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
 .update-notes p { margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; line-height: 1.7; }
 
 /* ----- Landing：同源斜纹带、7px 点阵与满宽内容面；装饰只归壳和标题 ----- */
-.system-page > .cleanup-title, .cleanup-scroll > .cleanup-title {
+.system-page > .cleanup-title, .cleanup-scroll > .cleanup-title, .identity-page > .cleanup-title {
   position: relative; isolation: isolate; min-height: 132px; padding: 32px 28px;
   margin: 0 -28px 44px; width: auto; max-width: none; justify-content: center;
   border-bottom: 1px solid var(--landing-line); background: var(--background);
 }
-.system-page > .cleanup-title::before, .cleanup-scroll > .cleanup-title::before {
+.system-page > .cleanup-title::before, .cleanup-scroll > .cleanup-title::before, .identity-page > .cleanup-title::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background-image: var(--landing-dots),
     radial-gradient(ellipse at 14% 45%,color-mix(in srgb,var(--primary) 8%,transparent) 0 12%,transparent 30%),
@@ -250,11 +250,11 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
   background-size: 7px 7px,100% 100%,100% 100%,100% 100%; opacity: .55;
   mask-image: linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent);
 }
-.system-page > .cleanup-title::after, .cleanup-scroll > .cleanup-title::after {
+.system-page > .cleanup-title::after, .cleanup-scroll > .cleanup-title::after, .identity-page > .cleanup-title::after {
   content: ''; position: absolute; inset-inline: 0; height: var(--landing-band); bottom: calc(-1 * var(--landing-band));
   border-bottom: 1px solid var(--landing-line); background-image: var(--landing-hatch); pointer-events: none;
 }
-.system-page > .cleanup-title > button, .cleanup-scroll > .cleanup-title > .cleanup-title-actions { position: absolute; right: 20px; bottom: 14px; }
+.system-page > .cleanup-title > button, .cleanup-scroll > .cleanup-title > .cleanup-title-actions, .identity-page > .cleanup-title > button { position: absolute; right: 20px; bottom: 14px; }
 .landing-section-band { height: var(--landing-band); flex-shrink: 0; border-block: 1px solid var(--landing-line); background-image: var(--landing-hatch); }
 
 /* ----- 网络：三步共用一个细线网格，安装区只保留选择、提示词和主按钮 ----- */
@@ -279,7 +279,7 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
 .skill-prompt-surface textarea { display: block; min-height: 104px; padding: 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 12px; line-height: 1.8; }
 .skill-prompt-actions { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--landing-line); background: #fafaf8; }
 @media(max-width:900px) {
-  .system-page > .cleanup-title, .cleanup-scroll > .cleanup-title { margin-inline: -22px; padding-inline: 22px; }
+  .system-page > .cleanup-title, .cleanup-scroll > .cleanup-title, .identity-page > .cleanup-title { margin-inline: -22px; padding-inline: 22px; }
   .network-page { padding: 0 0 24px; }
   .network-page > .cleanup-title { margin-inline: 0; }
   .network-step { padding: 24px 16px; }
@@ -297,3 +297,71 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
 .resource-specs > div:last-child { border-bottom: 0; }
 .resource-specs dt { color: var(--muted-foreground); }
 .resource-specs dd { margin: 0; overflow-wrap: anywhere; }
+
+/* ----- 身份单排卡片：原生横向滚动，无分页和数量截断；空身份保持白底 ----- */
+.identity-page { height:100%; overflow-y:auto; padding:0 0 24px; scrollbar-gutter:stable; }
+.identity-page > .cleanup-title { margin:0 0 var(--landing-band); }
+.identity-section-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 28px; }
+.identity-section-head h2 { font-size:14px; font-weight:550; margin:0; }
+.identity-count,.identity-caption { font-size:11px; color:var(--muted-foreground); }
+.identity-cli .identity-caption { display:block; margin-top:6px; }
+.identity-policy { border-bottom:1px solid var(--landing-line); }
+.identity-policy summary { padding:16px 28px; cursor:pointer; font-size:12px; }
+.identity-policy summary strong { font-weight:500; margin-left:8px; }
+.identity-policy summary > span { float:right; font:11px ui-monospace,monospace; color:var(--muted-foreground); }
+.identity-policy summary:focus-visible { outline:2px solid var(--foreground); outline-offset:-4px; }
+.identity-policy-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 28px 20px; gap:14px 24px; }
+.identity-policy-row label { font-size:12px; line-height:1.4; }
+.identity-card { position:relative; flex:0 0 196px; min-width:0; height:312px; padding:28px 16px 16px; border:1px solid #d0d0ca; border-radius:16px; background:linear-gradient(155deg,#fff 10%,#fafaf8 65%,#f1f1ee); display:flex; flex-direction:column; box-shadow:inset 0 1px 0 #fff,inset 0 -2px 0 #e8e8e3,0 6px 0 #d2d2cc,0 7px 0 #bdbdb5,0 16px 24px -12px #0004; transition:box-shadow .18s; transform-style:preserve-3d; }
+.identity-card:hover { box-shadow:inset 0 1px 0 #fff,inset 0 -2px 0 #e8e8e3,0 9px 0 #d2d2cc,0 10px 0 #bdbdb5,0 22px 30px -14px #0005; }
+.identity-card.current { color:#fff; background:linear-gradient(155deg,#343432 0%,#20201f 50%,#141413 100%); border-color:#353531; box-shadow:inset 0 1px 0 #ffffff35,inset 0 -2px 0 #080808,0 6px 0 #30302d,0 7px 0 #111,0 16px 24px -12px #0006; }
+.identity-card.current:hover { box-shadow:inset 0 1px 0 #ffffff35,inset 0 -2px 0 #080808,0 9px 0 #30302d,0 10px 0 #111,0 22px 30px -14px #0006; }
+.identity-card.empty { background:#fff; }
+.identity-card.selected { border-color:#75756e; }
+.identity-card::before { content:''; position:absolute; top:11px; left:50%; transform:translateX(-50%); width:30px; height:5px; border-radius:4px; background:#dadad4; box-shadow:inset 0 1px 2px #0003,0 1px 0 #fff; }
+.identity-card.current::before,.identity-card.empty.selected::before { background:linear-gradient(#98f8b2,#37d675 55%,#20ac52); box-shadow:inset 0 1px 1px #e7ffefaa,0 0 4px #43e484,0 0 11px #36df7299,0 0 22px #37da6b44; }
+.identity-card-head { display:flex; align-items:center; gap:6px; min-height:36px; }
+.identity-avatar { display:grid; place-items:center; width:36px; height:36px; flex:0 0 auto; border:1px solid var(--landing-line); border-radius:8px; background:#f6f6f3; font:14px ui-monospace,monospace; }
+.current .identity-avatar { color:#171717; background:linear-gradient(#fff,#e9e9e3); border-color:#fff9; box-shadow:inset 0 1px 0 #fff,0 3px 0 #84847b; }
+.empty .identity-avatar { background:#fff; border-style:dashed; font-size:24px; }
+.identity-card-badge { font-size:10px; color:var(--muted-foreground); }
+.current .identity-card-badge,.current .identity-live-badge { color:#c5c5bd; }
+.identity-size,.identity-live-badge { margin-left:auto; color:var(--muted-foreground); font:8px ui-monospace,monospace; white-space:nowrap; }
+.identity-card h2,.identity-card h3 { margin:14px 0 8px; font-size:17px; font-weight:550; line-height:1.3; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.identity-account { display:grid; gap:4px; font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
+.identity-email { color:#e7e7de; user-select:text; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.identity-organization,.identity-account-unknown { color:#aaa99e; }
+.identity-account-source { margin-top:6px; color:#b4b4a9; font:10px ui-monospace,monospace; }
+.current .identity-card-footer > button { color:#171717; background:linear-gradient(#fff,#f0f0ec); border:1px solid #fff9; box-shadow:inset 0 1px 0 #fff,0 2px 0 #0006; }
+.current .identity-card-footer > button:last-child { color:#deded5; background:transparent; border-color:#ffffff30; box-shadow:none; }
+.identity-card > time { color:var(--muted-foreground); font-size:11px; }
+.identity-card-footer { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding-top:12px; margin-top:auto; }
+.identity-card-footer > button:first-child,.current .identity-card-footer > button:last-child { grid-column:1/-1; }
+.identity-card-footer > button { min-width:0; font-size:11px; padding-inline:8px; }
+.identity-empty-note { margin:4px 0 0; font-size:11px; line-height:1.6; color:var(--muted-foreground); }
+.identity-organization { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.identity-library,.identity-cli { border-top:var(--landing-band) solid transparent; border-image:repeating-linear-gradient(135deg,#fff 0 3px,#d6d6d1 3px 4px,#fff 4px 7px) 16; }
+.identity-card-rail { display:flex; flex-wrap:nowrap; align-items:stretch; gap:18px; overflow-x:auto; overflow-y:hidden; min-width:0; padding:10px 28px 32px; scroll-padding-inline:28px; overscroll-behavior-x:contain; scrollbar-width:thin; scrollbar-color:#b8b8b1 transparent; }
+.identity-card-rail:focus-visible { outline:2px solid var(--foreground); outline-offset:-3px; }
+.identity-card-rail::-webkit-scrollbar { height:6px; }
+.identity-card-rail::-webkit-scrollbar-thumb { background:#b8b8b1; border-radius:3px; }
+.identity-card-rail::-webkit-scrollbar-track { background:transparent; }
+.identity-confirm { display:grid; gap:16px; }
+.identity-confirm > label { font-size:12px; }
+.identity-confirm-target,.identity-confirm-keep { display:flex; gap:24px; justify-content:space-between; border-top:1px solid var(--landing-line); padding-top:14px; font-size:12px; }
+.identity-confirm-target span,.identity-confirm-keep span { flex-shrink:0; color:var(--muted-foreground); }
+.identity-confirm-keep strong { text-align:right; font-weight:400; line-height:1.8; }
+.identity-confirm p { font-size:11px; color:var(--muted-foreground); line-height:1.8; margin:0; }
+.identity-confirm > label { font-size:12px; }
+.identity-recovery { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 28px; background:#fff5df; border-bottom:1px solid #e6d4ab; }
+.identity-recovery strong { font-size:12px; font-weight:500; }
+@media(max-width:850px) { .identity-section-head,.identity-policy summary,.identity-recovery { padding-inline:22px; } .identity-card-rail,.identity-policy-grid { padding-inline:22px; } .identity-card-rail { scroll-padding-inline:22px; } }
+
+@media(prefers-reduced-motion:reduce) { .identity-card { transition:none; } }
+
+/* ----- 永久删除使用明确危险色与 AlertDialog，取消始终是安全默认值 ----- */
+.identity-delete-warning { display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid #efc1b8; border-radius:8px; background:#fff3ef; color:#a73524; }
+.identity-delete-warning > span { display:grid; place-items:center; flex:0 0 24px; height:24px; border:1.5px solid currentColor; border-radius:50%; font-size:15px; font-weight:650; }
+.identity-delete-warning strong { font-size:12px; font-weight:550; line-height:1.6; }
+.identity-delete-alert .identity-delete-button { background:linear-gradient(#c94b3a,#b73828); color:#fff; border-color:#a62b20; }
+.identity-delete-alert .identity-delete-button:hover { background:linear-gradient(#d65341,#c43e2d); }

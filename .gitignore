@@ -33,3 +33,9 @@ packaging/arch/ccbaga/
 packaging/arch/*.tar.xz
 packaging/arch/*.tar.xz.part
 packaging/arch/*.pkg.tar.zst
+
+# Local identity vaults and generated account archives
+identity-vault/
+*.baga
+identities.sqlite*
+key.bin

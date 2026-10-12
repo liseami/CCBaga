@@ -1,6 +1,6 @@
 // [INPUT]: Claude 白名单、所选文件夹发现、配置变换、原子写入、官方原生 CLI 版本路径及 macOS/Linux 平台边界。
-// [OUTPUT]: 全机/文件夹扫描、旧组织发现、直接清理、实时 Claude 进程检查与结束全部已识别进程；CLI 安装管理共用互斥锁与进程核验。
-// [POS]: 本地清理事务编排；界面只提交快照编号，凭据正文不离开原生层。
+// [OUTPUT]: 全机/文件夹元数据扫描、旧组织发现、实时 Claude 进程检查与结束全部已识别进程；CLI 安装管理共用互斥锁与进程核验。
+// [POS]: 白名单与进程共用边界；身份操作由 identities 编排，历史直接清理只编译进测试。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use crate::native;
 use crate::progress::{Progress, Reporter};
@@ -10,7 +10,9 @@ use dunce::canonicalize;
 #[cfg(not(windows))]
 use std::fs::canonicalize;
 #[cfg(unix)]
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::os::unix::fs::MetadataExt;
+#[cfg(all(unix,test))]
+use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
 use std::{
@@ -30,8 +32,11 @@ mod file_io;
 mod folder;
 #[path = "cleaner_targets.rs"]
 mod targets;
+#[cfg(test)]
 #[path = "cleaner_transaction.rs"]
 mod transaction;
+#[path = "cleaner_identity.rs"]
+pub(crate) mod identity;
 #[cfg(test)]
 use transaction::perform_items;
 #[cfg(test)]
@@ -755,32 +760,10 @@ fn identity(item: &Item, root: &Path) -> Result<(), String> {
 
     Ok(())
 }
+#[cfg(test)]
 #[derive(Serialize)]
 pub struct CleanResult {
     cleaned: usize,
     errors: Vec<String>,
     completed: bool,
-}
-#[tauri::command]
-pub async fn cleaner_clean(
-    app: tauri::AppHandle,
-    ids: Vec<String>,
-    on_progress: Channel<Progress>,
-) -> Result<CleanResult, String> {
-    let state = app.state::<Cleaner>();
-    state.enter()?;
-    let worker = app.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        let reporter = Reporter::channel(Some(on_progress));
-        let result = transaction::perform_clean(&worker, ids, &reporter);
-        if let Err(error) = &result {
-            reporter.fail(error);
-        }
-        result
-    })
-    .await
-    .map_err(|_| "清理被中断；已删除的数据不可撤回，请重新扫描剩余项目。".to_string())
-    .and_then(|r| r);
-    state.active.store(false, Ordering::SeqCst);
-    result
 }

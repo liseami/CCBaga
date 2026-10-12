@@ -1,5 +1,5 @@
 // [INPUT]: macOS Objective-C / Linux Rust / Windows Rust 的本地清理、授权与剪贴板接口。
-// [OUTPUT]: 辅助功能权限、剪贴板复制、钥匙串解锁、脱敏凭据发现与允许系统授权的直接删除。
+// [OUTPUT]: 辅助功能权限、剪贴板复制、钥匙串解锁、脱敏凭据发现及用户确认的原生身份凭据暂存/恢复，不将正文交给 UI。
 // [POS]: 清理与电脑设置的平台桥接边界；公共 JSON 解码供独立 system 桥复用。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde::Deserialize;
@@ -18,6 +18,9 @@ extern "C" {
     fn rf_credentials_list() -> *mut c_char;
     fn rf_credentials_remove(reference: *const c_char) -> *mut c_char;
     fn rf_keychain_unlock() -> *mut c_char;
+    fn rf_identity_snapshot() -> *mut c_char;
+    fn rf_identity_remove(json: *const c_char) -> *mut c_char;
+    fn rf_identity_restore(json: *const c_char) -> *mut c_char;
 }
 
 #[derive(Clone, Deserialize)]
@@ -92,5 +95,35 @@ pub fn copy(text: &str) -> Result<(), String> {
         #[cfg(target_os = "macos")]
         rf_copy(text.as_ptr());
     }
+    Ok(())
+}
+
+// ----- 只供身份保险库使用；没有可直接调用的 WebView 凭据命令 -----
+pub(crate) fn identity_snapshot() -> Result<Vec<serde_json::Value>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        #[derive(Deserialize)]
+        struct Snapshot {
+            items: Vec<serde_json::Value>,
+        }
+        return Ok(decode::<Snapshot>(unsafe { rf_identity_snapshot() })?.items);
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(Vec::new())
+}
+pub(crate) fn identity_keys(items: &[serde_json::Value], restore: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let bytes = serde_json::to_string(items).map_err(|_| "身份凭据无法处理。")?;
+        let text = CString::new(bytes).map_err(|_| "身份凭据无法处理。")?;
+        let _: serde_json::Value = decode(unsafe {
+            if restore {
+                rf_identity_restore(text.as_ptr())
+            } else {
+                rf_identity_remove(text.as_ptr())
+            }
+        })?;
+    }
+    let _ = (items, restore);
     Ok(())
 }

@@ -96,6 +96,9 @@ jobs:
           python scripts/test-sign-browser.py
           python scripts/test-release-env.py
           python scripts/test-install-apps.py
+          clang -fobjc-arc -framework Foundation -framework Security src-tauri/native/IdentityTests.m -o "$RUNNER_TEMP/ccbaga-identity-test"
+          "$RUNNER_TEMP/ccbaga-identity-test"
+          rm -f "$RUNNER_TEMP/ccbaga-identity-test"
       - name: Windows CLI and region regression
         if: runner.os == 'Windows'
         run: python scripts/test-windows.py

@@ -81,6 +81,7 @@ build() {
 check() {
   cd "$srcdir/ccbaga"
   bun test
+  bun scripts/test-identities-ui.ts
   AWS_LC_SYS_CMAKE_BUILDER=1 cargo test --locked --manifest-path src-tauri/Cargo.toml --features custom-protocol
   python scripts/test-linux.py
   python skills/ccbaga-network/scripts/test_network.py

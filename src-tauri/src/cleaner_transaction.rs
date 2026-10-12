@@ -1,6 +1,6 @@
 // [INPUT]: 有效全机/目录清理快照、原子配置写入与原生凭据删除，以及进度通道。
-// [OUTPUT]: 直接删除结果和真实逐项日志；不生成备份、废纸篓副本或撤回记录。
-// [POS]: 清理事务的唯一写入边界；校验后执行，失败停止并报告剩余项未执行。
+// [OUTPUT]: 仅测试构建的可丢弃样本删除与快照保护回归；不注册生产命令。
+// [POS]: 历史清理边界回归；生产身份写入由 identities/store.rs 先归档后切换。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
 
@@ -14,25 +14,6 @@ fn file_mode(_meta: &fs::Metadata) -> u32 {
     0o600
 }
 
-pub(super) fn perform_clean(
-    app: &tauri::AppHandle,
-    ids: Vec<String>,
-    reporter: &Reporter,
-) -> Result<CleanResult, String> {
-    reporter.log("validate", "running", "正在核验进程与所选快照。", 0, None);
-    if running()? {
-        return Err("请先退出 Claude Desktop 和 Claude Code，再清理。".into());
-    }
-    let state = app.state::<Cleaner>();
-    let plan = state.plan.lock().unwrap().clone().ok_or("请先深度扫描。")?;
-    let items = selected(&plan, &ids)?;
-    let root = if plan.folder.is_empty() {
-        home()?
-    } else {
-        folder::validate(Path::new(&plan.folder))?
-    };
-    perform_items(&root, &items, &state, running, reporter)
-}
 pub(super) fn perform_items(
     root: &Path,
     items: &[Item],

@@ -1,5 +1,5 @@
 ﻿# [INPUT]: 固定 CLI 动作、当前用户根目录与官方原生/npm/bun/WinGet 程序位置。
-# [OUTPUT]: 真实安装来源/版本及卸载或重装完成协议，失败不报告成功。
+# [OUTPUT]: 安装来源/版本和真实完成协议；原生安装器下载/解码/解析失败时保留旧程序。
 # [POS]: Windows CLI 程序边界；拒绝链接目录、自定义启动器，保留配置、技能、会话和项目。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 param([ValidateSet('read','uninstall','reinstall')][string]$action='read')
@@ -27,6 +27,21 @@ function Run($program, $arguments) {
     $global:LASTEXITCODE=0
     & $program @arguments 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'Claude Code 安装命令执行失败。' }
+}
+function NativeInstaller {
+    try {
+        $content=(Invoke-WebRequest -UseBasicParsing -Uri 'https://claude.ai/install.ps1' -TimeoutSec 60).Content
+    } catch { Fail 'Claude Code 官方安装器下载失败，请检查网络后重试。' }
+    try {
+        if (-not $content -or $content.Length -gt 1048576) { throw 'Invalid installer size' }
+        # application/octet-stream 响应的 Content 是 byte[]，不能直接交给 ScriptBlock.Create。
+        if ($content -is [byte[]]) {
+            $content=(New-Object System.Text.UTF8Encoding($false,$true)).GetString($content)
+        } elseif ($content -isnot [string]) { throw 'Invalid installer response type' }
+        $content=$content.TrimStart([char]0xfeff)
+        if ($content -notmatch '^\s*param\s*\(') { throw 'Invalid installer content' }
+        return [scriptblock]::Create($content)
+    } catch { Fail 'Claude Code 官方安装器内容无效，已停止操作。' }
 }
 function Status {
     $methods=New-Object 'System.Collections.Generic.List[string]'
@@ -93,7 +108,6 @@ function Status {
     return @{methods=$methods;managed=$managed;nativeFiles=$nativeFiles;npm=$npm;bun=$bun;winget=$winget;cli=$cli;known=$known;version=$version}
 }
 function RemovePrograms($state) {
-    if ($state.cli -and -not $state.known) { Fail '检测到自定义 Claude 启动器，未删除或重装。' }
     if ($state.methods.Contains('npm')) { Run $state.npm @('uninstall','-g',$package) }
     if ($state.methods.Contains('bun')) { Run $state.bun @('remove','-g',$package) }
     if ($state.methods.Contains('winget')) { Run $state.winget @('uninstall','--id','Anthropic.ClaudeCode','--exact','--silent','--disable-interactivity') }
@@ -106,8 +120,15 @@ function RemovePrograms($state) {
 try {
     $state=Status
     if ($action -ne 'read') {
-        Step '正在卸载 Claude Code CLI。'
+        if ($state.cli -and -not $state.known) { Fail '检测到自定义 Claude 启动器，未删除或重装。' }
         $method=if($state.methods.Count){$state.methods[0]}else{'native'}
+        $installer=$null
+        if ($action -eq 'reinstall' -and $method -eq 'native') {
+            Step '正在下载 Claude Code 官方安装器。'
+            # 先下载并检查脚本，再卸载；网络或响应异常时不丢失已有程序。
+            $installer=NativeInstaller
+        }
+        Step '正在卸载 Claude Code CLI。'
         RemovePrograms $state
         if ($action -eq 'reinstall') {
             Step '正在重装 Claude Code CLI。'
@@ -116,9 +137,11 @@ try {
             elseif ($method -eq 'bun') { Run $state.bun @('install','-g',"$package@latest") }
             else {
                 Step '正在使用官方 Claude Code 安装器。'
-                $content=(Invoke-WebRequest -UseBasicParsing -Uri 'https://claude.ai/install.ps1').Content
-                if ($content.Length -gt 1048576) { Fail 'Claude Code 官方安装器响应异常。' }
-                & ([scriptblock]::Create($content)) | Out-Null
+                try {
+                    $global:LASTEXITCODE=0
+                    & $installer | Out-Null
+                    if ($LASTEXITCODE -ne 0) { throw 'Native installer failed' }
+                } catch { Fail 'Claude Code 原生重装失败，请检查网络和安装目录权限。' }
             }
             Step '正在核验 Claude Code CLI 版本。'
             $state=Status
