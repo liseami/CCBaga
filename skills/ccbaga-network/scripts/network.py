@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# [INPUT]: 本机 0600 JSON、完整三文件密钥、OpenSSH/curl 和本 Skill 部署脚本。
+# [INPUT]: 本机 0600 JSON、完整三文件密钥、OpenSSH/curl 和本 Skill UTF-8 部署脚本及相邻 Windows 原生边界。
 # [OUTPUT]: 分阶段密钥/连接/出口核验、显式部署、私密订阅文件与 TUN 实测。
 # [POS]: Skill 的标准库执行层；AI 收集资料后通过标准输入建私密配置；秘密不进入 argv/公开日志，失败不报告部署成功。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

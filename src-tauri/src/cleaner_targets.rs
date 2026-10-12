@@ -1,4 +1,4 @@
-// [INPUT]: 当前用户目录、Claude 清理白名单与可选组织编号。
+// [INPUT]: 当前用户目录、Windows 实际 AppData、Claude 清理白名单与可选组织编号。
 // [OUTPUT]: 分类清理目标、完整目录元数据统计及受限旧组织文件匹配。
 // [POS]: 清理发现边界；不跟随链接，不遍历项目仓库，不读取凭据内容。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -418,7 +418,7 @@ pub(super) fn org_files(root: &Path, org: &str) -> Result<(Vec<PathBuf>, bool), 
     }
     let mut pending = Vec::new();
     let mut candidates = vec![root.join(".claude/projects"), root.join(".claude/sessions")];
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     candidates.extend([
         root.join("Library/Application Support/Claude/local_sessions"),
         root.join("Library/Application Support/Claude/conversations"),
