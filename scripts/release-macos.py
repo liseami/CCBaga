@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # [INPUT]: 双应用源代码、外部 Developer ID、Apple API 与更新签名凭据、哈希锁定的 dmgbuild 与 macOS 发布工具。
 # [OUTPUT]: 公证并装订票据的双应用 DMG、带版本签名的主程序更新归档/清单、SHA256SUMS 和实际签名/公证记录。
-# [POS]: 发布唯一顺序入口；浏览器票据先进入宿主资源，Browser.app 暂存为 CCBaga-B.app，签名后不改包内容；更新私钥只传给签名子进程。
+# [POS]: 发布唯一顺序入口；浏览器票据先进入宿主资源；票据网络失败限次重试，仍要求验收通过；更新私钥只传给签名子进程。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 from datetime import datetime, timezone
 import tarfile
@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import dmgbuild
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,6 +25,21 @@ BUILD_ENV = {key: value for key, value in os.environ.items() if key not in SIGNI
 
 def run(*args, env=None):
     subprocess.run([str(x) for x in args], cwd=ROOT, env=env if env is not None else BUILD_ENV, check=True)
+
+
+def staple(action, target):
+    # ----- 仅重试票据服务的网络错误；无效票据/签名仍立即失败 -----
+    command = ['xcrun', 'stapler', action, str(target)]
+    for attempt in range(3):
+        result = subprocess.run(command, cwd=ROOT, env=BUILD_ENV, capture_output=True, text=True)
+        sys.stdout.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        if result.returncode == 0:
+            return
+        network = 'NSURLErrorDomain' in result.stdout + result.stderr
+        if result.returncode != 68 or not network or attempt == 2:
+            raise subprocess.CalledProcessError(result.returncode, command)
+        time.sleep(3 * (attempt + 1))
 
 
 def main():
@@ -61,8 +77,8 @@ def main():
             run('xcrun', 'notarytool', 'log', record['id'], *auth, log)
             raise SystemExit(f'Apple rejected {archive.name}; inspect {log}')
         print(f"Accepted: {record['id']}", flush=True)
-        run('xcrun', 'stapler', 'staple', ticket_target)
-        run('xcrun', 'stapler', 'validate', ticket_target)
+        staple('staple', ticket_target)
+        staple('validate', ticket_target)
 
     run('sh', 'scripts/make-icons.sh')
     run('sh', 'scripts/package-browser.sh')
@@ -90,7 +106,7 @@ def main():
         with tarfile.open(update_archive, 'r:gz') as bundle:
             bundle.extractall(unpacked, filter='tar')
         run('codesign', '--verify', '--deep', '--strict', unpacked / HOST.name)
-        run('xcrun', 'stapler', 'validate', unpacked / HOST.name)
+        staple('validate', unpacked / HOST.name)
         run('spctl', '--assess', '--type', 'execute', unpacked / HOST.name)
         subprocess.run(['bun', 'run', 'tauri', 'signer', 'sign', '--app-version', version, str(update_archive)], cwd=ROOT, check=True, capture_output=True, env=signing_env)
         signature = Path(str(update_archive) + '.sig')

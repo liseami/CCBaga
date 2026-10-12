@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# [INPUT]: Windows x64 MSVC、锁定前端/Rust 依赖、固定引擎、隔离身份 UI 模拟与统一版本。
+# [INPUT]: Windows x64 MSVC、锁定前端/Rust 依赖、固定引擎、Node.js 标准管道的隔离身份 UI 模拟与统一版本。
 # [OUTPUT]: 经真实安装验证的单个 NSIS 安装器、内部载荷清单与校验摘要；构建不接触私钥。
 # [POS]: Windows 发布构建边界；先验证再产出，更新签名由独立 CI 步骤完成。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -29,7 +29,7 @@ def main():
     if phase in ['all','check']:
         run('bun','test');run('bun','run','build')
         checks=[
-            ['bun','scripts/test-identities-ui.ts'],
+            ['bun','run','test:identities'],
             ['bun','scripts/test-skill-install.ts'],
             [sys.executable,'skills/ccbaga-network/scripts/test_network.py'],
             ['cargo','test','--locked','--manifest-path','src-tauri/Cargo.toml','--features','custom-protocol'],

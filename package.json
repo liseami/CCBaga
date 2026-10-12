@@ -12,7 +12,7 @@
     "test:windows": "python scripts/test-windows.py",
     "install:apps": "sh scripts/install-apps.sh",
     "dev:install": "python3 scripts/dev-install.py",
-    "test:identities": "bun scripts/test-identities-ui.ts"
+    "test:identities": "node --experimental-strip-types scripts/test-identities-ui.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

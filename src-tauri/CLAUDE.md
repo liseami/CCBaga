@@ -7,7 +7,7 @@ native/ - macOS 剪贴板、授权、直接钥匙串删除与电脑环境设置�
 capabilities/ - 主窗口能力边界；见其 CLAUDE.md。
 windows/ - NSIS 当前用户安装钩子与 B 入口；见其 CLAUDE.md。
 icons/ - 应用包图标；见其 CLAUDE.md。
-Cargo.toml: SQLite bundled 身份索引、ring 认证加密与 tar/gzip 归档；Tauri 宿主、官方 updater/process 插件与原生桥依赖；custom-protocol 映射 tauri/custom-protocol，由正式打包启用以读取内嵌前端，开发模式默认不启用。
+Cargo.toml: Win32 文件创建时原子指定用户 SID/私有 ACL；SQLite bundled 身份索引、ring 认证加密与 tar/gzip 归档；Tauri 宿主、官方 updater/process 插件与原生桥依赖；custom-protocol 映射 tauri/custom-protocol，由正式打包启用以读取内嵌前端，开发模式默认不启用。
 Cargo.lock: 锁定 Rust 与平台库的实际版本。
 build.rs: 编译 Objective-C 桥并生成 Tauri 构建元数据。
 tauri.conf.json: 产品名 CCBaga-A、窗口、应用包标识、内容安全策略、静态图标 LobeHub 图标许可资源、公开 HTTPS 更新清单/公钥/强制签名版本与开发默认临时签名；发布脚本显式覆盖 Developer ID 签名身份。

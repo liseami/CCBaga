@@ -3,6 +3,9 @@
 // [POS]: 身份管理的离线验证入口；平台真实登入需用户验收。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
+fn fixture_write(path: impl AsRef<std::path::Path>, bytes: impl AsRef<[u8]>) -> Result<(), String> {
+    private::write(path.as_ref(), bytes.as_ref())
+}
 #[test]
 fn database_metadata_and_recovery_are_transactional() {
     let folder = std::fs::canonicalize(std::env::temp_dir())
@@ -39,9 +42,9 @@ fn empty_identity_and_saved_identity_preserve_user_choices() {
     let vault = folder.join("vault");
     private::directory(&home).unwrap();
     private::directory(&home.join(".claude/skills/personal")).unwrap();
-    std::fs::write(home.join(".claude/skills/personal/SKILL.md"), "keep").unwrap();
-    std::fs::write(home.join(".claude.json"),r#"{"oauthAccount":{"emailAddress":"fixture@example.invalid"},"mcpServers":{"private":"keep"},"projects":{"mine":true}}"#).unwrap();
-    std::fs::write(
+    fixture_write(home.join(".claude/skills/personal/SKILL.md"), "keep").unwrap();
+    fixture_write(home.join(".claude.json"),r#"{"oauthAccount":{"emailAddress":"fixture@example.invalid"},"mcpServers":{"private":"keep"},"projects":{"mine":true}}"#).unwrap();
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"disposable fixture credential"}}"#,
     )
@@ -111,7 +114,7 @@ fn interrupted_switch_can_recover_and_preserves_pre_recovery_state() {
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
     private::directory(&home.join(".claude")).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"original fixture"}}"#,
     )
@@ -123,7 +126,7 @@ fn interrupted_switch_can_recover_and_preserves_pre_recovery_state() {
     store
         .clear(&store::Store::selected(&stage, &Policy::default()))
         .unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/history.jsonl"),
         "new work after interruption",
     )
@@ -150,7 +153,7 @@ fn damaged_saved_archive_never_changes_live_identity() {
     let home = folder.join("home");
     let vault = folder.join("vault");
     private::directory(&home.join(".claude")).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"first"}}"#,
     )
@@ -161,7 +164,7 @@ fn damaged_saved_archive_never_changes_live_identity() {
         .switch("empty", "first", &Policy::default(), &reporter)
         .unwrap();
     let original = store.records().into_iter().find(|r| !r.empty).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"second"}}"#,
     )
@@ -170,7 +173,7 @@ fn damaged_saved_archive_never_changes_live_identity() {
     let mut bytes = std::fs::read(&path).unwrap();
     let last = bytes.len() - 1;
     bytes[last] ^= 1;
-    std::fs::write(path, bytes).unwrap();
+    fixture_write(path, bytes).unwrap();
     assert!(store
         .switch(&original.id, "second", &Policy::default(), &reporter)
         .is_err());
@@ -192,7 +195,7 @@ fn selected_symlink_is_refused_without_changing_source() {
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
     private::directory(&home.join(".claude")).unwrap();
-    std::fs::write(folder.join("outside"), "keep").unwrap();
+    fixture_write(folder.join("outside"), "keep").unwrap();
     std::os::unix::fs::symlink(
         folder.join("outside"),
         home.join(".claude/.credentials.json"),
@@ -223,12 +226,12 @@ fn direct_delete_respects_kept_data_and_removes_only_selected_archive() {
     let home = folder.join("home");
     let vault = folder.join("vault");
     private::directory(&home.join(".claude/skills/private")).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/skills/private/SKILL.md"),
         "personal asset",
     )
     .unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"fixture"},"mcpOAuth":"shared"}"#,
     )
@@ -275,12 +278,12 @@ fn restoring_full_settings_preserves_newer_shared_settings_when_requested() {
         .join(format!("baga-identity-test-{}", new_id().unwrap()));
     let home = folder.join("home");
     private::directory(&home.join(".claude")).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude.json"),
         r#"{"oauthAccount":{"id":"first"},"theme":"old","mcpServers":{"private":"old"}}"#,
     )
     .unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/settings.json"),
         r#"{"theme":"old","env":{"ANTHROPIC_API_KEY":"first"}}"#,
     )
@@ -291,12 +294,12 @@ fn restoring_full_settings_preserves_newer_shared_settings_when_requested() {
         .switch("empty", "all", &Policy::all(), &reporter)
         .unwrap();
     let saved = store.records().into_iter().find(|r| !r.empty).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude.json"),
         r#"{"theme":"latest","mcpServers":{"private":"latest"}}"#,
     )
     .unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/settings.json"),
         r#"{"theme":"latest","env":{"OTHER":"keep"}}"#,
     )
@@ -327,7 +330,7 @@ fn missing_master_key_never_replaces_a_retired_registered_archive() {
     let home = folder.join("home");
     let vault = folder.join("vault");
     private::directory(&home.join(".claude")).unwrap();
-    std::fs::write(
+    fixture_write(
         home.join(".claude/.credentials.json"),
         r#"{"claudeAiOauth":{"accessToken":"fixture"}}"#,
     )

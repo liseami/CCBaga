@@ -1,11 +1,13 @@
 /**
- * [INPUT]: 已锁定 playwright-core、固定引擎、Vite 与 tests/ 的虚构 Tauri IPC。
+ * [INPUT]: Node.js 标准管道、已锁定 playwright-core、固定引擎、Vite 与 tests/ 的虚构 Tauri IPC。
  * [OUTPUT]: 工牌顺序/数量、横滚弹簧/视差、双语、保留选项与确认/删除/失败/恢复的真实 DOM 交互验收。
  * [POS]: 发布前无头行为回归；无截图、无真实账号/文件修改，不加载原生宿主，不允许外网请求。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import {strict as assert} from 'node:assert';
-import {resolve} from 'node:path';
+import {resolve,join} from 'node:path';
+import {mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {createServer} from 'vite';
 import {chromium} from 'playwright-core';
 const engine=process.platform==='darwin'?'Browser.app/Contents/MacOS/Chromium':process.platform==='win32'?'WindowsBrowser/chrome.exe':'LinuxBrowser/chrome';
@@ -14,7 +16,13 @@ await server.listen();
 const address=server.httpServer!.address() as {port:number};
 const base=`http://127.0.0.1:${address.port}`;
 const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('APPLE_')&&!key.startsWith('TAURI_SIGNING_PRIVATE_KEY'))) as Record<string,string>;
-const browser=await chromium.launch({executablePath:resolve('browser-runtime',engine),headless:true,env});
+// ----- 临时 HOME/XDG 避免容器环境的只读配置和真实浏览器资料 -----
+const temporary=await mkdtemp(join(tmpdir(),'ccbaga-ui-'));
+for(const name of ['config','cache'])await mkdir(join(temporary,name));
+Object.assign(env,{HOME:temporary,XDG_CONFIG_HOME:join(temporary,'config'),XDG_CACHE_HOME:join(temporary,'cache')});
+let browser;
+try{browser=await chromium.launch({executablePath:resolve('browser-runtime',engine),headless:true,env});}
+catch(error){await server.close();await rm(temporary,{recursive:true,force:true});throw error;}
 let checks=0;
 try{
  const context=await browser.newContext({viewport:{width:1040,height:820},reducedMotion:'no-preference'});
@@ -89,4 +97,4 @@ try{
  await current.waitFor({state:'detached'});assert.equal(await page.evaluate(()=>(window as any).identityFixture.state.records.length),count);checks++;
  assert.equal(errors.length,0,errors.join('\n'));
  console.log(`${checks} identity UI simulation checks passed; no native commands or user data used.`);
-}finally{await browser.close();await server.close();}
+}finally{await browser.close();await server.close();await rm(temporary,{recursive:true,force:true});}

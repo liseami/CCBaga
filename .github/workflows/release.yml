@@ -83,7 +83,7 @@ jobs:
         run: |
           bun test
           bun run build
-          bun scripts/test-identities-ui.ts
+          bun run test:identities
           identity_test="$RUNNER_TEMP/ccbaga-identity-test"
           clang -fobjc-arc -framework Foundation -framework Security src-tauri/native/IdentityTests.m -o "$identity_test"
           "$identity_test"

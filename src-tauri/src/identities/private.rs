@@ -1,8 +1,60 @@
 // [INPUT]: 标准库文件系统、当前用户身份与 Windows ACL API。
 // [OUTPUT]: 私有目录/文件、链接与所有权检查、同步原子写入。
-// [POS]: 身份保险库的磁盘边界；权限在秘密写入之前收紧，不修改用户系统策略。
+// [POS]: 身份保险库的磁盘边界；Windows 创建时明确用户所有者/DACL，既有文件仍拒绝所有者变化。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use std::{fs, io::Write, path::Path};
+#[cfg(windows)]
+fn windows_create<T>(
+    path: &Path,
+    create: impl FnOnce(
+        *const u16,
+        *const windows_sys::Win32::Security::SECURITY_ATTRIBUTES,
+    ) -> Result<T, String>,
+) -> Result<T, String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::{
+        Foundation::LocalFree,
+        Security::{Authorization::*, *},
+    };
+    let sid = crate::windows::current_sid().ok_or("无法读取当前用户 SID。")?;
+    let entry = EXPLICIT_ACCESS_W {
+        grfAccessPermissions: 0x1f01ff,
+        grfAccessMode: SET_ACCESS,
+        grfInheritance: SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+        Trustee: TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_USER,
+            ptstrName: sid.as_ptr() as *mut u16,
+        },
+    };
+    let mut acl = std::ptr::null_mut();
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    unsafe {
+        if SetEntriesInAclW(1, &entry, std::ptr::null(), &mut acl) != 0 {
+            return Err("无法保护身份文件权限。".into());
+        }
+        let mut descriptor: SECURITY_DESCRIPTOR = std::mem::zeroed();
+        let pointer = (&mut descriptor as *mut SECURITY_DESCRIPTOR).cast();
+        let result = if InitializeSecurityDescriptor(pointer, 1) == 0
+            || SetSecurityDescriptorOwner(pointer, sid.as_ptr() as *mut _, 0) == 0
+            || SetSecurityDescriptorDacl(pointer, 1, acl, 0) == 0
+            || SetSecurityDescriptorControl(pointer, SE_DACL_PROTECTED, SE_DACL_PROTECTED) == 0
+        {
+            Err("无法保护身份文件权限。".into())
+        } else {
+            let attributes = SECURITY_ATTRIBUTES {
+                nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+                lpSecurityDescriptor: pointer,
+                bInheritHandle: 0,
+            };
+            create(wide.as_ptr(), &attributes)
+        };
+        LocalFree(acl.cast());
+        result
+    }
+}
 pub fn safe(path: &Path) -> Result<(), String> {
     let meta = fs::symlink_metadata(path).map_err(|_| "身份文件无法读取。")?;
     if crate::cleaner::linked(&meta) || (!meta.is_file() && !meta.is_dir()) {
@@ -109,20 +161,56 @@ pub fn directory(path: &Path) -> Result<(), String> {
                 .map_err(|_| "无法创建身份目录。")?;
         }
         #[cfg(windows)]
-        fs::create_dir(path).map_err(|_| "无法创建身份目录。")?;
+        windows_create(path, |wide, attributes| {
+            if unsafe {
+                windows_sys::Win32::Storage::FileSystem::CreateDirectoryW(wide, attributes)
+            } == 0
+            {
+                Err("无法创建身份目录。".into())
+            } else {
+                Ok(())
+            }
+        })?;
     }
     protect(path)
 }
 pub fn create(path: &Path) -> Result<fs::File, String> {
     parents(path.parent().ok_or("身份路径无效。")?)?;
-    let mut options = fs::OpenOptions::new();
-    options.create_new(true).write(true).read(true);
     #[cfg(unix)]
-    {
+    let file = {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let file = options.open(path).map_err(|_| "无法创建身份暂存文件。")?;
+        fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .read(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|_| "无法创建身份暂存文件。")?
+    };
+    #[cfg(windows)]
+    let file = windows_create(path, |wide, attributes| {
+        use std::os::windows::io::FromRawHandle;
+        use windows_sys::Win32::{
+            Foundation::{GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE},
+            Storage::FileSystem::*,
+        };
+        let handle = unsafe {
+            CreateFileW(
+                wide,
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ,
+                attributes,
+                CREATE_NEW,
+                FILE_ATTRIBUTE_NORMAL,
+                std::ptr::null_mut(),
+            )
+        };
+        if handle == INVALID_HANDLE_VALUE {
+            Err("无法创建身份暂存文件。".into())
+        } else {
+            Ok(unsafe { fs::File::from_raw_handle(handle) })
+        }
+    })?;
     if let Err(e) = protect(path) {
         drop(file);
         let _ = fs::remove_file(path);
@@ -140,6 +228,7 @@ pub fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         f.write_all(bytes)
             .and_then(|_| f.sync_all())
             .map_err(|_| "无法保存身份文件。")?;
+        drop(f);
         fs::rename(&temp, path).map_err(|_| "无法提交身份文件。")?;
         sync_parent(path);
         Ok(())

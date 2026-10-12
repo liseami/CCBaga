@@ -5,6 +5,7 @@
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 import importlib.util
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,3 +19,18 @@ with patch.dict(os.environ, {key: 'disposable-fixture' for key in credentials}):
     assert all(key not in release.BUILD_ENV for key in credentials)
     assert release.BUILD_ENV['PATH'] == os.environ['PATH']
 print('Apple and updater credentials are excluded from build environments.')
+
+# ----- 网络错误可恢复；无效票据和持续断网仍阻断交付 -----
+network = subprocess.CompletedProcess([], 68, '', 'NSURLErrorDomain Code=-1005')
+success = subprocess.CompletedProcess([], 0, '', '')
+invalid = subprocess.CompletedProcess([], 65, '', 'Invalid ticket')
+for results, expected, passes in [([network, success], 2, True), ([invalid], 1, False), ([network] * 3, 3, False)]:
+    with patch.object(release.subprocess, 'run', side_effect=results) as command, patch.object(release.time, 'sleep'):
+        try:
+            release.staple('validate', Path('disposable-fixture.app'))
+            assert passes
+        except subprocess.CalledProcessError:
+            assert not passes
+        assert command.call_count == expected
+        assert command.call_args.kwargs['env'] == release.BUILD_ENV
+print('Ticket retries preserve validation failures and secret isolation.')
