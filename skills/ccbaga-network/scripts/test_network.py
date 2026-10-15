@@ -92,6 +92,14 @@ class NetworkTests(unittest.TestCase):
             self.assertFalse(n.host_valid(host))
         self.assertTrue(n.host_valid('2001:db8::1'))
 
+    def test_scoped_ipv6_is_not_a_host_or_expected_exit_ip(self):
+        for host in ['fe80::1%eth0','fe80::1%a;id','fe80::1%$(id)','fe80::1%a b','fe80::1%a\nb']:
+            self.assertFalse(n.host_valid(host),host)
+            for key in ['vps','home_host']:
+                with self.assertRaises(ValueError,msg=(key,host)): n.validate_config({**self.config(),key:host})
+        with self.assertRaises(ValueError): n.validate_config({**self.config(),'expected_ip':'fe80::1%eth0'})
+        self.assertEqual(n.validate_config({**self.config(),'expected_ip':'2001:db8::1'})['expected_ip'],'2001:db8::1')
+
     def test_agent_configuration_needs_no_terminal_and_never_prints_secrets(self):
         path = self.root/'private/connection.json'
         n.configure(path, io.StringIO(json.dumps(self.config())))

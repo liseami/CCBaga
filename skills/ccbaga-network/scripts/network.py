@@ -46,6 +46,11 @@ def host_valid(value):
     if not isinstance(value, str) or not value or len(value) > 253:
         return False
     try:
+        # ip_address accepts an IPv6 zone ("fe80::1%eth0") whose text after %
+        # is free-form, so spaces, quotes and shell syntax would pass as a
+        # "valid IP". A zone names a local interface, never a VPS or proxy.
+        if '%' in value:
+            return False
         ipaddress.ip_address(value)
         return True
     except ValueError:
@@ -101,6 +106,8 @@ def validate_config(conf):
             raise ValueError('Invalid proxy credentials; keep them in the local config')
     if not isinstance(conf['expected_ip'], str):
         raise ValueError('Invalid expected exit IP; provide it as a quoted IPv4/IPv6 address string')
+    if '%' in conf['expected_ip']:
+        raise ValueError('Invalid expected exit IP; a scoped IPv6 address cannot be an exit address')
     conf['expected_ip'] = str(ipaddress.ip_address(conf['expected_ip']))
     return conf
 
