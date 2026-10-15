@@ -169,6 +169,25 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             installer.desktop_exec(Path('/tmp/app\nmalformed'))
 
+    def test_exec_quoting_round_trips_through_both_desktop_entry_layers(self):
+        def decode(value):
+            # Desktop Entry string escapes first, then the Exec double-quote rules.
+            value = value.replace('\\\\', '\0')
+            assert '\\' not in value
+            value = value.replace('\0', '\\')
+            assert value[0] == value[-1] == '"'
+            out, i = '', 1
+            while i < len(value) - 1:
+                if value[i] == '\\':
+                    i += 1
+                else:
+                    self.assertNotIn(value[i], '"`$')
+                out += value[i]
+                i += 1
+            return out
+        for text in ['/tmp/say "hi"/app', '/tmp/back\\slash/app', '/tmp/`tick`/$HOME/app', '/tmp/mix "\\`$/app']:
+            self.assertEqual(decode(installer.desktop_exec(Path(text)).replace('%%', '%')), text)
+
     def test_running_companion_blocks_replacement(self):
         installer.install(self.build, self.prefix)
         proc = self.root / 'proc-exe'

@@ -18,7 +18,7 @@ def desktop_exec(path):
     if '\n' in text or '\r' in text:
         raise ValueError('Invalid application path')
     # Desktop Entry Exec has both string-value and argument quoting layers.
-    for old, new in [('\\', '\\\\\\\\'), ('"', '\\\\\\"'), ('`', '\\\\`'), ('$', '\\\\$'), ('%', '%%')]:
+    for old, new in [('\\', '\\\\\\\\'), ('"', '\\\\"'), ('`', '\\\\`'), ('$', '\\\\$'), ('%', '%%')]:
         text = text.replace(old, new)
     return f'"{text}"'
 
