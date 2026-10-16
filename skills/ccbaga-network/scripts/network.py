@@ -49,7 +49,9 @@ def host_valid(value):
         ipaddress.ip_address(value)
         return True
     except ValueError:
-        return all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', p) for p in value.split('.'))
+        labels = value.split('.')
+        # A hostname never ends in an all-numeric label; "999.1.1.1" is a mistyped IPv4 address.
+        return not labels[-1].isdigit() and all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', p) for p in labels)
 
 
 def private_write(path, content):

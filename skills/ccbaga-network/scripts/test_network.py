@@ -92,6 +92,13 @@ class NetworkTests(unittest.TestCase):
             self.assertFalse(n.host_valid(host))
         self.assertTrue(n.host_valid('2001:db8::1'))
 
+    def test_mistyped_ipv4_is_not_accepted_as_a_hostname(self):
+        for host in ['999.1.1.1','256.256.256.256','1.2.3','1.2.3.4.5','01.2.3.4','1234']:
+            self.assertFalse(n.host_valid(host),host)
+            with self.assertRaises(ValueError,msg=host): n.validate_config({**self.config(),'vps':host})
+        for host in ['203.0.113.1','vps.example.com','1.example.com','localhost','a1']:
+            self.assertTrue(n.host_valid(host),host)
+
     def test_agent_configuration_needs_no_terminal_and_never_prints_secrets(self):
         path = self.root/'private/connection.json'
         n.configure(path, io.StringIO(json.dumps(self.config())))
