@@ -141,6 +141,26 @@ fn default_read() -> Result<DefaultBrowser, String> {
             .to_string(),
     })
 }
+// Desktop Entry Exec has two quoting layers (string-value escapes around the Exec double-quote
+// rules), so each reserved character is prefixed by an escaped backslash: `"` becomes two backslashes plus the quote.
+fn desktop_exec_escape(path: &str) -> Result<String, String> {
+    if path.contains(['\n', '\r']) {
+        return Err("Invalid application path.".into());
+    }
+    Ok(path
+        .replace('\\', "\\\\\\\\")
+        .replace('"', "\\\\\"")
+        .replace('`', "\\\\`")
+        .replace('$', "\\\\$")
+        .replace('%', "%%"))
+}
+#[test]
+fn desktop_exec_escapes_quotes_with_one_exec_layer_escape() {
+    assert_eq!(desktop_exec_escape(r#"/opt/say "hi"/app"#).unwrap(), r#"/opt/say \\"hi\\"/app"#);
+    assert_eq!(desktop_exec_escape(r"/opt/a\b/app").unwrap(), r"/opt/a\\\\b/app");
+    assert_eq!(desktop_exec_escape("/opt/`x`/$HOME/100%").unwrap(), r"/opt/\\`x\\`/\\$HOME/100%%");
+    assert!(desktop_exec_escape("/opt/a\nb").is_err());
+}
 #[tauri::command]
 pub async fn browser_set_default(app: tauri::AppHandle) -> Result<DefaultBrowser, String> {
     run(move || {
@@ -152,8 +172,7 @@ pub async fn browser_set_default(app: tauri::AppHandle) -> Result<DefaultBrowser
         fs::create_dir_all(desktop.parent().unwrap()).map_err(|_| "Cannot create applications directory.")?;
         // AppImage extraction paths are temporary: register the persistent AppImage when available.
         let executable = std::env::var_os("APPIMAGE").map(PathBuf::from).unwrap_or(std::env::current_exe().map_err(|_| "Cannot locate CCBaga-A.")?);
-        let escaped = executable.to_string_lossy().replace('\\', "\\\\\\\\").replace('"', "\\\\\\\"").replace('`', "\\\\`").replace('$', "\\\\$").replace('%', "%%");
-        if escaped.contains(['\n', '\r']) { return Err("Invalid application path.".into()); }
+        let escaped = desktop_exec_escape(&executable.to_string_lossy())?;
         fs::write(&desktop, format!("[Desktop Entry]\nType=Application\nName=CCBaga-B\nExec=\"{escaped}\" --browser %U\nIcon=ccbaga-browser\nTerminal=false\nCategories=Network;WebBrowser;\nMimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;\n")).map_err(|_| "Cannot register CCBaga-B desktop entry.")?;
         for scheme in ["x-scheme-handler/http", "x-scheme-handler/https"] {
             let status = Command::new("xdg-mime").args(["default", LINUX_DESKTOP_ID, scheme]).status().map_err(|_| "Install xdg-utils to manage default applications.")?;
