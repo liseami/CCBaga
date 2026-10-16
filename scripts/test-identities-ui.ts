@@ -78,6 +78,15 @@ try{
  await page.mouse.click(3,3);assert.equal(await dialog.count(),1);
  await dialog.getByRole('button',{name:'取消'}).click();
  assert.equal(await page.evaluate(()=>((window as any).identityFixture.commands as any[]).filter(row=>row.command==='identities_delete').length),0);checks++;
+ assert.match(await current.innerText(),/已备份/);assert.match(await current.innerText(),/Pro/);assert.match(await current.innerText(),/凭据有效/);
+ const savedSecond=cards.filter({has:page.getByRole('heading',{name:'Identity 2',exact:true})});
+ assert.match(await savedSecond.innerText(),/user2@example\.invalid/);assert.match(await savedSecond.innerText(),/Org 2/);
+ await current.getByRole('button',{name:'更新备份',exact:true}).click();
+ dialog=page.getByRole('dialog');await dialog.waitFor();
+ assert.match(await dialog.innerText(),/PID 4201/);assert.match(await dialog.innerText(),/CCBaga/);
+ await dialog.getByRole('button',{name:'确认保存备份',exact:true}).click();
+ await page.waitForFunction(()=>((window as any).identityFixture.commands as any[]).some(row=>row.command==='identities_save'));
+ assert.equal(await page.evaluate(()=>(window as any).identityFixture.state.current.present),true);checks++;
  await page.getByText('保留在工作区',{exact:true}).click();
  await page.getByRole('checkbox',{name:'Skills 与命令'}).uncheck();
  await cards.first().getByRole('button',{name:'使用空身份'}).click();

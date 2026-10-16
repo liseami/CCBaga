@@ -85,29 +85,37 @@ pub(super) fn current_id(
 }
 impl Store {
     pub(super) fn index_legacy(&self) -> Result<(), String> {
+        let summaries = self.db.summaries()?;
         for record in self
             .db
             .records()?
             .into_iter()
-            .filter(|r| r.account_key.is_none())
+            .filter(|r| r.account_key.is_none() || (!r.empty && !summaries.contains_key(&r.id)))
         {
             // 损坏的旧副本不自动删除；用户仍可单独删除或保留排查。
             let Ok(stage) = self.load(&record) else {
                 continue;
             };
-            let key = if let Some(key) = &stage.manifest.account_key {
-                Some(key.clone())
-            } else if let Some(n) = stage
-                .manifest
-                .sources
-                .iter()
-                .position(|s| s.path == self.home.join(".claude.json"))
-            {
-                file_key(&stage.path.join(format!("data/{n}")), &self.key)?
-            } else {
-                None
-            };
-            self.db.index(&record.id, key.as_deref().unwrap_or(""))?;
+            if record.account_key.is_none() {
+                let key = if let Some(key) = &stage.manifest.account_key {
+                    Some(key.clone())
+                } else if let Some(n) = stage
+                    .manifest
+                    .sources
+                    .iter()
+                    .position(|s| s.path == self.home.join(".claude.json"))
+                {
+                    file_key(&stage.path.join(format!("data/{n}")), &self.key)?
+                } else {
+                    None
+                };
+                self.db.index(&record.id, key.as_deref().unwrap_or(""))?;
+            }
+            if !record.empty {
+                let _ = self
+                    .db
+                    .set_summary(&record.id, &super::profile::summarize_stage(&stage));
+            }
         }
         Ok(())
     }

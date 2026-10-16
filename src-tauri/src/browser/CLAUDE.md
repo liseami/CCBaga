@@ -1,6 +1,6 @@
 # browser/
 > L2 | 父级: ../CLAUDE.md
-mod.rs: Tauri 浏览器命令、单次变更锁与运行时状态；引擎优先 /Applications/CCBaga-B.app，回退 ~/Applications；宿主启动时建立起始页会话（start.url）、写入 launch.args；已有浏览器时打开新会话页以重新连接，回报与接收时间同一快照，上下文/快照共享界面语言与出口服务目录；会话因保存/清理/退出/对齐失效时立即换新，宿主退出删除 start.url；默认浏览器读取与一键请求；快捷换指纹先正常退出，再随机更新种子/地区、清空显式代理以跟随 TUN 并开启 Canvas/布局种子；运行中可重开 Default 实测页，偏好写入、设置、清理与系统对齐要求先退出；browser_clear 的可选 resetProfile 与 includeSiteData 双重明确选择触发当前资料完整重置，旧调用仍保持缓存/站点边界。
+mod.rs: Tauri 浏览器命令、单次变更锁与运行时状态；引擎优先 /Applications/CCBaga-B.app，回退 ~/Applications；宿主启动时建立起始页会话（start.url）、写入 launch.args，身份原地备份后同步刷新 launch.args（sync_current_launch_args）；已有浏览器时打开新会话页以重新连接，回报与接收时间同一快照，上下文/快照共享界面语言与出口服务目录；会话因保存/清理/退出/对齐失效时立即换新，宿主退出删除 start.url；默认浏览器读取与一键请求；快捷换指纹先正常退出，再随机更新种子/地区、清空显式代理以跟随 TUN 并开启 Canvas/布局种子；运行中可重开 Default 实测页，偏好写入、设置、清理与系统对齐要求先退出；browser_clear 的可选 resetProfile 与 includeSiteData 双重明确选择触发当前资料完整重置，旧调用仍保持缓存/站点边界。
 config.rs: 按当前身份保存的指纹配置（新资料默认代理留空以跟随 TUN）、实际机器参数及规范化有效国家、跟随机器时独立按国家/时区识别目标、代理/地区语言白名单和 Chromium 参数生成；独占 user-data-dir 内明确启动 Default 资料，防止最近使用资料与清理/偏好范围错位，品牌版本采用实际引擎版本；显式代理使用正向回环豁免，禁止取消隐式豁免，IPv6解析规则用裸主机。
 profile.rs: 当前绑定资料、进程占用与偏好窄写入；缓存及旧站点操作保持原范围；显式完整重置遍历当前 user-data-dir 的所有文件与子 Profile，同时清除密码库/解密密钥、书签、历史和个人设置。全树所有权/链接/元数据预检后，逐文件与空目录删除并报告真实 n/N；进程前后强制且每 250ms 复查。仅 unlink 当前用户的根级 SingletonLock/Cookie/Socket 崩溃锁，其他链接阻断；其他身份、配置种子、保险库、引擎及系统钥匙串不在范围。
 network.rs: macOS/Linux/Windows 原生平台与浏览器观测分别核验，Windows 识别 Win32 并要求真实版本/CPU；共用 ipwho.is/ipapi.co 服务目录；经同一指定代理检测出口，服务故障/限流按顺序备援，分块限定响应规模并报告 HTTP 原因；本机出口对比；按有效机器国家/时区或手动预设匹配目标；语言与有效配置比较、区域与规范化国家比较；失败、国家/语言/区域或时区冲突均不显示通过，自定义地区未知时保持未核验。

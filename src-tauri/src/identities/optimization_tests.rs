@@ -578,3 +578,76 @@ fn retained_proxy_and_account_repo_paths_follow_the_selected_policy() {
         .get("owner-b/repo")
         .is_none());
 }
+
+#[test]
+fn in_place_save_and_summary_backfill_and_lock_cleanup() {
+    let f = Fixture::new();
+    let r = Reporter::channel(None);
+    let p = Policy::default();
+    let mut s = store::Store::open(&f.vault, &f.home).unwrap();
+    s.db.configure_browser(true, false, None).unwrap();
+    let draft_slot = s.db.browser_slot().unwrap();
+
+    f.write(
+        ".claude.json",
+        &serde_json::to_vec(&serde_json::json!({
+            "oauthAccount": {
+                "accountUuid": "acct-max",
+                "organizationUuid": "org-max",
+                "emailAddress": "max@example.invalid",
+                "displayName": "Max User",
+                "organizationName": "Max Org",
+                "subscriptionType": "claude_max_20x"
+            }
+        }))
+        .unwrap(),
+    );
+    f.write(
+        ".claude/.credentials.json",
+        br#"{"claudeAiOauth":{"accessToken":"tok-max","refreshToken":"ref-max","expiresAt":4102444800000,"subscriptionType":"max","rateLimitTier":"default_claude_max_20x"}}"#,
+    );
+    f.write(".claude.lock", b"stale");
+    f.write(".claude.json.lock", b"stale-json");
+
+    // 1. In-place save snapshots into vault without clearing live files or switching browser slot
+    s.save_current("主力 Max 20x", &p, &r).unwrap();
+    assert!(!f.home.join(".claude.lock").exists());
+    assert!(!f.home.join(".claude.json.lock").exists());
+    assert_eq!(f.token(), "tok-max");
+    assert_eq!(s.records().len(), 1);
+    let rec = &s.records()[0];
+    assert_eq!(rec.id, draft_slot);
+    assert_eq!(rec.name, "主力 Max 20x");
+    assert_eq!(s.db.browser_slot().unwrap(), draft_slot);
+    assert_eq!(
+        s.db.browser_for(&rec.id).unwrap().as_deref(),
+        Some(draft_slot.as_str())
+    );
+
+    // 2. Check live profile and persisted summary
+    let current = profile::read(&f.home);
+    assert_eq!(current.plan.as_deref(), Some("Max 20x"));
+    assert_eq!(current.auth_status.as_deref(), Some("valid"));
+
+    let summaries = s.db.summaries().unwrap();
+    let sum = summaries.get(&rec.id).unwrap();
+    assert_eq!(sum.email.as_deref(), Some("max@example.invalid"));
+    assert_eq!(sum.organization.as_deref(), Some("Max Org"));
+    assert_eq!(sum.plan.as_deref(), Some("Max 20x"));
+    assert_eq!(sum.auth_status.as_deref(), Some("valid"));
+
+    // 3. Simulate legacy archive without summary row and verify automatic backfill on Store::open
+    let rec_id = rec.id.clone();
+    s.db.connection
+        .execute("DELETE FROM identity_summaries WHERE id=?1", [&rec_id])
+        .unwrap();
+    assert!(s.db.summaries().unwrap().is_empty());
+    drop(s);
+
+    let s = store::Store::open(&f.vault, &f.home).unwrap();
+    let backfilled = s.db.summaries().unwrap();
+    let sum2 = backfilled.get(&rec_id).unwrap();
+    assert_eq!(sum2.email.as_deref(), Some("max@example.invalid"));
+    assert_eq!(sum2.plan.as_deref(), Some("Max 20x"));
+}
+

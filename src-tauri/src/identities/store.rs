@@ -402,6 +402,47 @@ impl Store {
         reporter.log("verify", "ok", "所选本地身份已直接删除。", 1, Some(1));
         Ok(())
     }
+    pub fn save_current(
+        &mut self,
+        name: &str,
+        policy: &Policy,
+        reporter: &Reporter,
+    ) -> Result<(), String> {
+        if self.db.get("recovery")?.is_some() {
+            return Err("请先恢复未完成的身份切换。".into());
+        }
+        self.stopped()?;
+        identity::clear_stale_locks(&self.home);
+        let (mut record, stage) = self.save(name, policy, reporter)?;
+        if record.empty {
+            return Err("当前未检测到可暂存的登录凭据或身份数据。".into());
+        }
+        record.name = name.into();
+        reporter.log(
+            "commit",
+            "running",
+            "正在更新身份保险库与浏览器绑定。",
+            0,
+            Some(1),
+        );
+        self.db.remember(&record)?;
+        self.db.rename(&record.id, &record.name)?;
+        let _ = self
+            .db
+            .set_summary(&record.id, &super::profile::summarize_stage(&stage));
+        self.db.complete(&record.id)?;
+        self.db.compact()?;
+        let _ = self.collect_generations();
+        reporter.log("commit", "ok", "身份保险库与浏览器绑定已更新。", 1, Some(1));
+        reporter.log(
+            "verify",
+            "ok",
+            "当前身份已加密备份到保险库，无需退出当前工作区。",
+            1,
+            Some(1),
+        );
+        Ok(())
+    }
     pub fn switch(
         &mut self,
         target: &str,
@@ -490,6 +531,7 @@ impl Store {
             );
             mutated = true;
             self.clear(&current, reporter, "clear")?;
+            identity::clear_stale_locks(&self.home);
             #[cfg(test)]
             if self.fail_after_clear {
                 return Err("fixture rollback".into());
@@ -514,6 +556,16 @@ impl Store {
                 Some(1),
             );
             self.db.complete(target)?;
+            if !record.empty {
+                let _ = self
+                    .db
+                    .set_summary(&record.id, &super::profile::summarize_stage(&outgoing));
+            }
+            if let Some(stage) = incoming.as_ref() {
+                let _ = self
+                    .db
+                    .set_summary(target, &super::profile::summarize_stage(stage));
+            }
             reporter.log("commit", "ok", "身份与浏览器选择已提交。", 1, Some(1));
             Ok(())
         })();
@@ -618,6 +670,10 @@ impl Store {
             self.save_checkpoint(name, &outgoing.manifest.policy, reporter)?;
         if !checkpoint.empty {
             self.db.remember(&checkpoint)?;
+            let _ = self.db.set_summary(
+                &checkpoint.id,
+                &super::profile::summarize_stage(&current_stage),
+            );
         }
         self.clear(
             &Self::selected(&current_stage, &outgoing.manifest.policy),
@@ -664,6 +720,11 @@ impl Store {
             Some(1),
         );
         self.db.complete(&record.id)?;
+        if !record.empty {
+            let _ = self
+                .db
+                .set_summary(&record.id, &super::profile::summarize_stage(&outgoing));
+        }
         self.db.compact()?;
         let _ = self.collect_generations();
         reporter.log("commit", "ok", "恢复后的身份选择已提交。", 1, Some(1));

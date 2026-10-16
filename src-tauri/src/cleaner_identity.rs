@@ -308,6 +308,10 @@ pub(crate) fn processes_running() -> Result<bool, String> {
     running()
 }
 
+pub(crate) fn running_processes() -> Vec<ClaudeProcess> {
+    super::processes().unwrap_or_default()
+}
+
 pub(crate) fn account_key(key: &str) -> bool {
     config::ACCOUNT_KEYS.contains(&key)
 }
@@ -321,4 +325,39 @@ pub(crate) fn desktop_present(root: &Path) -> bool {
             crate::identities::private::parents(s.path.parent().unwrap()).is_ok()
                 && crate::identities::private::safe(&s.path).is_ok()
         })
+}
+
+fn remove_safe_entry(path: &Path) {
+    let Ok(meta) = fs::symlink_metadata(path) else {
+        return;
+    };
+    if linked(&meta) || canonicalize(path).ok().as_deref() != Some(path) {
+        return;
+    }
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    if crate::identities::private::parents(parent).is_err()
+        || crate::identities::private::safe(path).is_err()
+    {
+        return;
+    }
+    if meta.is_dir() {
+        let _ = fs::remove_dir_all(path);
+    } else if meta.is_file() {
+        let _ = fs::remove_file(path);
+    }
+}
+
+/// 清理 Claude Code 在异常退出、进程强杀或切换账号后遗留的 OAuth / 配置互斥锁文件，防止下次启动阻塞或报锁冲突。
+pub(crate) fn clear_stale_locks(root: &Path) {
+    for rel in [
+        ".claude/.oauth_refresh.lock",
+        ".claude/.oauth_refresh.lock.owner",
+        ".claude/daemon.lock",
+        ".claude.lock",
+        ".claude.json.lock",
+    ] {
+        remove_safe_entry(&root.join(rel));
+    }
 }

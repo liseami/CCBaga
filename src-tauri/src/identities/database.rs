@@ -1,5 +1,5 @@
 // [INPUT]: rusqlite/内嵌 SQLite、私有保险库目录和脱敏身份元数据与本机加盐的账号索引。
-// [OUTPUT]: 默认联动/显式关闭保留、首身份预留编号与身份目录、保留策略、当前身份、SQLite v3 浏览器绑定与持久切换/恢复状态和身份移除事务；仅在互斥的提交后回收空归档记录。
+// [OUTPUT]: 默认联动/显式关闭保留、首身份预留编号与身份目录、已保存身份脱敏摘要、保留策略、当前身份、SQLite v3 浏览器绑定与持久切换/恢复状态和身份移除事务；仅在互斥的提交后回收空归档记录。
 // [POS]: 保险库的索引事务；凭据和会话正文仅进入加密归档，不进入数据库。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use rusqlite::{params, Connection, OptionalExtension};
@@ -46,6 +46,7 @@ impl Database {
         connection.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
             CREATE TABLE IF NOT EXISTS identities(id TEXT PRIMARY KEY, name TEXT NOT NULL, archive TEXT NOT NULL, saved_at INTEGER NOT NULL, bytes INTEGER NOT NULL, policy TEXT NOT NULL,empty INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS identity_summaries(id TEXT PRIMARY KEY,summary TEXT NOT NULL);
 ").map_err(error)?;
         let tx = connection.unchecked_transaction().map_err(error)?;
         let version: i64 = tx
@@ -69,6 +70,38 @@ impl Database {
         .map_err(error)?;
         tx.commit().map_err(error)?;
         Ok(Self { connection })
+    }
+    pub fn summaries(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, super::profile::Summary>, String> {
+        let mut query = self
+            .connection
+            .prepare("SELECT id,summary FROM identity_summaries")
+            .map_err(error)?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(error)?;
+        let mut map = std::collections::BTreeMap::new();
+        for row in rows {
+            let (id, raw) = row.map_err(error)?;
+            if let Ok(summary) = serde_json::from_str::<super::profile::Summary>(&raw) {
+                map.insert(id, summary);
+            }
+        }
+        Ok(map)
+    }
+    pub fn set_summary(&self, id: &str, summary: &super::profile::Summary) -> Result<(), String> {
+        let text = serde_json::to_string(summary).map_err(|_| "身份摘要无法保存。")?;
+        self.connection
+            .execute(
+                "INSERT INTO identity_summaries(id,summary) VALUES(?1,?2)
+                 ON CONFLICT(id) DO UPDATE SET summary=excluded.summary",
+                params![id, text],
+            )
+            .map_err(error)?;
+        Ok(())
     }
     pub fn records(&self) -> Result<Vec<Record>, String> {
         let mut query=self.connection.prepare("SELECT id,name,archive,saved_at,bytes,policy,empty,account_key FROM identities ORDER BY saved_at DESC,id").map_err(error)?;
@@ -125,6 +158,11 @@ impl Database {
         }
         let records = self.records()?;
         let tx = self.connection.transaction().map_err(error)?;
+        tx.execute(
+            "DELETE FROM identity_summaries WHERE id IN (SELECT id FROM identities WHERE empty != 0)",
+            [],
+        )
+        .map_err(error)?;
         tx.execute("DELETE FROM identities WHERE empty != 0", [])
             .map_err(error)?;
         let mut seen = std::collections::HashMap::<String, String>::new();
@@ -137,6 +175,8 @@ impl Database {
                         params![record.id, id],
                     )
                     .map_err(error)?;
+                    tx.execute("DELETE FROM identity_summaries WHERE id=?1", [&record.id])
+                        .map_err(error)?;
                     tx.execute("DELETE FROM identities WHERE id=?1", [record.id])
                         .map_err(error)?;
                 } else {
@@ -222,6 +262,8 @@ impl Database {
         {
             return Err("身份不存在。".into());
         }
+        tx.execute("DELETE FROM identity_summaries WHERE id=?1", [id])
+            .map_err(error)?;
         tx.execute(
             "UPDATE state SET value='current' WHERE key='active' AND value=?1",
             [id],

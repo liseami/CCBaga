@@ -166,6 +166,19 @@ pub(super) fn definitions_with_warnings(root: &Path) -> (Vec<Target>, Vec<String
         ));
     }
     for (relative, title) in [
+        (".claude.lock", "Code 配置互斥锁"),
+        (".claude.json.lock", "Code 配置互斥锁"),
+    ] {
+        result.push(target(
+            root,
+            relative,
+            title,
+            "cache",
+            "safe",
+            "可重新生成，不移除登录、技能或设置。",
+        ));
+    }
+    for (relative, title) in [
         ("Library/Caches/claude-cli-nodejs", "Code 系统缓存"),
         ("Library/Logs/Claude", "Desktop 日志"),
         (

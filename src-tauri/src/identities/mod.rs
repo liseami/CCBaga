@@ -74,6 +74,8 @@ pub struct State {
     pub browser: browser_link::BrowserLink,
     pub browser_warning: Option<String>,
     pub records: Vec<database::Record>,
+    pub summaries: std::collections::BTreeMap<String, profile::Summary>,
+    pub sessions: Vec<profile::ActiveSession>,
     pub active: String,
     pub recovery: Option<String>,
     pub running: bool,
@@ -109,8 +111,26 @@ fn vault(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 fn state(app: &tauri::AppHandle) -> Result<State, String> {
     let vault_path = vault(app)?;
     let root_path = crate::cleaner::identity::root()?;
-    // 列表读取不能打开会回收归档/暂存目录的 Store；文件事务只在持锁的修改入口运行。
+    // 列表读取不能无锁打开会回收归档/暂存目录的 Store；文件事务只在持锁入口运行。
     let db = database::Database::open(&vault_path)?;
+    let mut records: Vec<_> = db.records()?.into_iter().filter(|r| !r.empty).collect();
+    let mut summaries = db.summaries()?;
+    if records
+        .iter()
+        .any(|r| r.account_key.is_none() || !summaries.contains_key(&r.id))
+    {
+        let cleaner = app.state::<crate::cleaner::Cleaner>();
+        if cleaner.enter().is_ok() {
+            let _ = store::Store::open(&vault_path, &root_path);
+            cleaner.leave();
+            if let Ok(updated) = db.records() {
+                records = updated.into_iter().filter(|r| !r.empty).collect();
+            }
+            if let Ok(updated) = db.summaries() {
+                summaries = updated;
+            }
+        }
+    }
     Ok(State {
         browser: db.browser_link()?,
         browser_warning: app
@@ -119,7 +139,9 @@ fn state(app: &tauri::AppHandle) -> Result<State, String> {
             .lock()
             .unwrap()
             .clone(),
-        records: db.records()?.into_iter().filter(|r| !r.empty).collect(),
+        records,
+        summaries,
+        sessions: profile::active_sessions(&root_path),
         active: catalog::current_id(&vault_path, &root_path, &db)?
             .unwrap_or_else(|| "current".into()),
         recovery: db.get("recovery")?,
@@ -157,6 +179,37 @@ pub async fn identities_stop(
     .map_err(|_| "结束进程被中断，请刷新。".to_string())
     .and_then(|r| r)
     .map(|_| ());
+    cleaner.leave();
+    result
+}
+#[tauri::command]
+pub async fn identities_save(
+    app: tauri::AppHandle,
+    current_name: String,
+    policy: Policy,
+    on_progress: Channel<Progress>,
+) -> Result<State, String> {
+    let current_name = name(&current_name)?;
+    let cleaner = app.state::<crate::cleaner::Cleaner>();
+    cleaner.enter()?;
+    let worker = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let reporter = Reporter::channel(Some(on_progress));
+        let result = (|| {
+            let mut store =
+                store::Store::open(&vault(&worker)?, &crate::cleaner::identity::root()?)?;
+            store.save_current(&current_name, &policy, &reporter)?;
+            crate::browser::sync_current_launch_args(&worker);
+            state(&worker)
+        })();
+        if let Err(e) = &result {
+            reporter.fail(e);
+        }
+        result
+    })
+    .await
+    .map_err(|_| "身份备份中断，请重试。".to_string())
+    .and_then(|r| r);
     cleaner.leave();
     result
 }

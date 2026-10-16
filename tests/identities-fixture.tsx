@@ -17,8 +17,9 @@ import {setLocale} from '../src/i18n';
 import '../src/index.css';
 import '../src/style.css';
 const id=(number:number)=>number.toString(16).padStart(32,'0');
-const user={present:true,display_name:'Fixture user',email:'fixture@example.invalid',organization:'Fixture team',unavailable:false};
-const state:IdentityState={browser:{enabled:true,bound_ids:[]},browser_warning:null,active:id(1),recovery:null,running:true,current:{...user},records:Array.from({length:40},(_,n)=>({id:id(n+1),name:`Identity ${n+1}`,saved_at:1780000000000+n,bytes:2048,policy:{...defaultPolicy}}))};
+const user={present:true,display_name:'Fixture user',email:'fixture@example.invalid',organization:'Fixture team',plan:'Pro',auth_status:'valid',unavailable:false};
+const summaries=Object.fromEntries(Array.from({length:40},(_,n)=>[id(n+1),{email:`user${n+1}@example.invalid`,organization:`Org ${n+1}`,plan:n%2===0?'Max 20x':'Pro',auth_status:'valid'}]));
+const state:IdentityState={browser:{enabled:true,bound_ids:[]},browser_warning:null,active:id(1),recovery:null,running:true,sessions:[{pid:4201,workspace:'CCBaga',entrypoint:'VS Code'}],current:{...user},summaries,records:Array.from({length:40},(_,n)=>({id:id(n+1),name:`Identity ${n+1}`,saved_at:1780000000000+n,bytes:2048,policy:{...defaultPolicy}}))};
 const browserMode=new URLSearchParams(location.search).get('panel')==='browser';
 const browserState:BrowserState={ui_language:'zh',exit_services:[],region:null,config:{seed:123,proxy:'',follow_machine:true,language:'en-US',timezone:'America/New_York',native_graphics:true},machine:{platform:'macos',version:'fixture',cores:8,timezone:'America/New_York',languages:['en-US'],locale:'en_US',locale_country:'US',location_enabled:false,timezones:['America/New_York']},engine_version:'fixture',engine_ready:true,running:false,profile:'/fixture/profiles/current',identity_linked:true,cache:[],cache_error:'',report:null,report_received_at:null,machine_exit:null,checks:[]};
 const commands:{command:string;args:any}[]=[];
@@ -80,19 +81,26 @@ function execute(command:string,args:any){
   return {cleaned:selected.length,errors:[],completed:true} satisfies CleanResult;
  }
  if(command==='claude_cli_read')return {method:'',path:'',version:''};
- if(command==='identities_stop'){state.running=false;return {running:false};}
+ if(command==='identities_stop'){state.running=false;state.sessions=[];return {running:false};}
+ if(command==='identities_save'){
+  const existing=state.records.find(row=>row.id===state.active);
+  if(existing){existing.name=args.currentName;existing.saved_at=1780000010000+commands.length;existing.policy={...args.policy};}
+  else {const nextId=id(1000+commands.length);state.records.push({id:nextId,name:args.currentName,saved_at:1780000010000+commands.length,bytes:4096,policy:{...args.policy}});state.active=nextId;state.summaries[nextId]={email:state.current.email,organization:state.current.organization,plan:state.current.plan,auth_status:state.current.auth_status};}
+  if(state.browser.enabled&&!state.browser.bound_ids.includes(state.active))state.browser.bound_ids.push(state.active);
+  return structuredClone(state);
+ }
  if(command==='identities_switch'){
   if(args.recover){state.recovery=null;state.current={...user};return structuredClone(state);}
-  if(state.current.present){const existing=state.records.find(row=>row.id===state.active);if(existing){existing.saved_at=1780000010000+commands.length;existing.policy={...args.policy};}else state.records.push({id:id(1000+commands.length),name:args.currentName,saved_at:1780000010000+commands.length,bytes:4096,policy:{...args.policy}});}
+  if(state.current.present){const existing=state.records.find(row=>row.id===state.active);if(existing){existing.saved_at=1780000010000+commands.length;existing.policy={...args.policy};}else{const nextId=id(1000+commands.length);state.records.push({id:nextId,name:args.currentName,saved_at:1780000010000+commands.length,bytes:4096,policy:{...args.policy}});state.summaries[nextId]={email:state.current.email,organization:state.current.organization,plan:state.current.plan,auth_status:state.current.auth_status};}}
   if(state.browser.enabled){if(state.active!=='empty'&&!state.browser.bound_ids.includes(state.active))state.browser.bound_ids.push(state.active);if(args.targetId!=='empty'&&!state.browser.bound_ids.includes(args.targetId))state.browser.bound_ids.push(args.targetId);}
   state.active=args.targetId;
-  state.current=args.targetId==='empty'?{present:false,display_name:null,email:null,organization:null,unavailable:false}:{...user,display_name:state.records.find(row=>row.id===args.targetId)!.name};
+  state.current=args.targetId==='empty'?{present:false,display_name:null,email:null,organization:null,plan:null,auth_status:null,unavailable:false}:{...user,display_name:state.records.find(row=>row.id===args.targetId)!.name};
   return structuredClone(state);
  }
  if(command==='identities_rename'){state.records.find(row=>row.id===args.id)!.name=args.value;return structuredClone(state);}
  if(command==='identities_delete'){
-  if(args.id==='current'){state.current={present:false,display_name:null,email:null,organization:null,unavailable:false};state.active='empty';}
-  else state.records=state.records.filter(row=>row.id!==args.id);
+  if(args.id==='current'){state.current={present:false,display_name:null,email:null,organization:null,plan:null,auth_status:null,unavailable:false};state.active='empty';}
+  else{state.records=state.records.filter(row=>row.id!==args.id);delete state.summaries[args.id];}
   return structuredClone(state);
  }
  throw Error(`Unexpected fixture command: ${command}`);

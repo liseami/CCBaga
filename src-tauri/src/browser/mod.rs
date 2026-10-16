@@ -17,6 +17,11 @@ pub(crate) fn configure_identity(
 ) -> Result<(), String> {
     workspaces::transition(app, reporter, true, action)
 }
+pub(crate) fn sync_current_launch_args(app: &tauri::AppHandle) {
+    let state = app.state::<Browser>();
+    let _guard = state.gate.lock().unwrap();
+    let _ = refresh_launch_args(app);
+}
 #[cfg(target_os = "linux")]
 include!("linux.rs");
 #[cfg(target_os = "windows")]
