@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 已实现功能、开发配置、跨平台 PR 回归、双应用使用方式与 MIT/第三方许可边界。
+[INPUT]: 已实现功能、开发配置、跨平台 PR 回归、待验收 Intel 移植、双应用使用方式与 MIT/第三方许可边界。
 [OUTPUT]: 面向公开仓库的英文产品首页、中文入口、旅居人员用途声明、安装与开发入口、架构和贡献导航。
 [POS]: 项目公开入口，连接产品功能、使用说明与模块导航。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -61,6 +61,8 @@ The bilingual **Usage guide** covers common actions and data boundaries. See the
 ## Installation
 
 **Platforms:** macOS 12 or later on Apple Silicon; Linux x86_64 with GTK 3 and WebKitGTK 4.1; Windows 10/11 x86_64. Intel macOS and Linux ARM64 are not supported.
+
+The Intel macOS port is in development. Its architecture integration and validation status are tracked in [macOS Intel development](docs/macos-intel.md); an accepted Intel installer is not yet available.
 
 Linux x86_64 packages include DEB, RPM and AppImage built on Ubuntu 22.04 (glibc 2.35), plus a separate package for current Arch/pacman systems. All include the companion browser. See [Linux setup](docs/linux.md) for installation and platform limits. Official versions are published exclusively by the project owner, **liseami**.
 

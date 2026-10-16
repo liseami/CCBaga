@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# [INPUT]: 双应用源代码、外部 Developer ID、Apple API 与更新签名凭据、哈希锁定的 dmgbuild 与 macOS 发布工具。
+# [INPUT]: 与本机 arm64/x86_64 匹配的双应用源代码/引擎、外部签名凭据、锁定的 dmgbuild 与 macOS 发布工具。
 # [OUTPUT]: 公证并装订票据的双应用 DMG、带版本签名的主程序更新归档/清单、SHA256SUMS 和实际签名/公证记录。
 # [POS]: 发布唯一顺序入口；浏览器票据先进入宿主资源；票据网络失败限次重试，仍要求验收通过；更新私钥只传给签名子进程。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import dmgbuild
+from macos_arch import architecture, updater_target, check_bundle
 
 ROOT = Path(__file__).resolve().parent.parent
 BROWSER = ROOT / 'browser-runtime/Browser.app'
@@ -43,6 +44,8 @@ def staple(action, target):
 
 
 def main():
+    arch = architecture()
+    check_bundle(BROWSER, arch)
     required = ['CC_SIGN_IDENTITY', 'APPLE_API_KEY', 'APPLE_API_ISSUER', 'APPLE_API_KEY_PATH']
     for key in required:
         if not os.environ.get(key):
@@ -71,7 +74,7 @@ def main():
         result = subprocess.run(['xcrun', 'notarytool', 'submit', str(archive), *auth, '--no-s3-acceleration', '--wait', '--output-format', 'json'], cwd=ROOT, check=True, capture_output=True, text=True, env=BUILD_ENV)
         record = json.loads(result.stdout)
         records.append({'artifact': archive.name, 'id': record['id'], 'status': record.get('status')})
-        (output / 'notarization.json').write_text(json.dumps(records, indent=2) + '\n')
+        (output / f'notarization-macos-{arch}.json').write_text(json.dumps(records, indent=2) + '\n')
         if record.get('status') != 'Accepted':
             log = output / f"notary-{record['id']}.json"
             run('xcrun', 'notarytool', 'log', record['id'], *auth, log)
@@ -92,13 +95,14 @@ def main():
     build_env['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
     config = json.dumps({'version': version, 'build': {'beforeBuildCommand': 'bun run build'}, 'bundle': {'macOS': {'signingIdentity': identity}}})
     run('bun', 'run', 'tauri', 'build', '--bundles', 'app', '--features', 'custom-protocol', '--config', config, env=build_env)
+    check_bundle(HOST, arch)
     with tempfile.TemporaryDirectory(prefix='cctool-release-') as temporary:
         work = Path(temporary)
         archive = work / 'CCCleaner.zip'
         run('ditto', '-c', '-k', '--keepParent', HOST, archive)
         notarize(archive, HOST)
         # ----- 更新只签最终装订后的宿主字节；公钥留在应用，私钥不进入构建 -----
-        update_archive = output / f'CCBaga-{version}-macos-arm64.app.tar.gz'
+        update_archive = output / f'CCBaga-{version}-macos-{arch}.app.tar.gz'
         with tarfile.open(update_archive, 'w:gz', dereference=False) as bundle:
             bundle.add(HOST, arcname=HOST.name)
         unpacked = work / 'updater-verification'
@@ -112,12 +116,12 @@ def main():
         signature = Path(str(update_archive) + '.sig')
         endpoint = json.loads((ROOT / 'src-tauri/tauri.conf.json').read_text())['plugins']['updater']['endpoints'][0]
         repository = endpoint.split('/releases/')[0]
-        manifest = output / 'latest.json'
+        manifest = output / f'latest-macos-{arch}.json'
         manifest.write_text(json.dumps({
             'version': version,
             'notes': 'CCBaga-A update. For both applications, download the DMG from GitHub Releases.',
             'pub_date': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            'platforms': {'darwin-aarch64': {
+            'platforms': {updater_target(arch): {
                 'url': f'{repository}/releases/download/v{version}/{update_archive.name}',
                 'signature': signature.read_text().strip()
             }}
@@ -133,8 +137,9 @@ def main():
             run('ditto', app, stage / name)
         for name in ['LICENSE', 'NOTICE.md']:
             run('ditto', ROOT / name, stage / name)
-        (stage / 'Install.txt').write_text('Drag both apps into Applications. Requires Apple Silicon and macOS 12 or later.\n')
-        dmg = output / f'CCBaga-{version}-macos-arm64.dmg'
+        processor = 'Apple Silicon' if arch == 'arm64' else 'an Intel Mac'
+        (stage / 'Install.txt').write_text(f'Drag both apps into Applications. Requires {processor} and macOS 12 or later.\n')
+        dmg = output / f'CCBaga-{version}-macos-{arch}.dmg'
         dmgbuild.build_dmg(str(dmg), 'CCBaga', settings_file=str(ROOT / 'scripts/dmg-settings.py'), defines={'stage': str(stage), 'root': str(ROOT)})
         run(sys.executable, 'scripts/verify-dmg.py', dmg)
         run('codesign', '--force', '--sign', identity, '--timestamp', dmg)
@@ -145,7 +150,7 @@ def main():
         with artifact.open('rb') as stream:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
         digests.append(f'{digest}  {artifact.name}\n')
-    (output / 'SHA256SUMS').write_text(''.join(digests))
+    (output / f'macOS-{arch}-SHA256SUMS').write_text(''.join(digests))
     print(f'Release verified: {dmg}', flush=True)
 
 

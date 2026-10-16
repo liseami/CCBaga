@@ -1,0 +1,34 @@
+--- a/mojo/core/channel_mac.cc
++++ b/mojo/core/channel_mac.cc
+@@ -6,7 +6,14 @@
+ 
+ #include <mach/mach.h>
+ #include <string.h>
++#if __has_include(<sys/fileport.h>)
+ #include <sys/fileport.h>
++#else
++// Older SDKs export these fileport APIs without publishing their header.
++// Keep the same Mach file-descriptor transport when building with SDK 15.2.
++extern "C" int fileport_makeport(int, mach_port_t*);
++extern "C" int fileport_makefd(mach_port_t);
++#endif
+ #include <unistd.h>
+ 
+ #include <algorithm>
+--- a/mojo/core/ipcz_driver/wrapped_platform_handle.cc
++++ b/mojo/core/ipcz_driver/wrapped_platform_handle.cc
+@@ -24,7 +24,14 @@
+ 
+ #if BUILDFLAG(IS_APPLE)
+ #include <mach/mach.h>
++#if __has_include(<sys/fileport.h>)
+ #include <sys/fileport.h>
++#else
++// Older SDKs export these fileport APIs without publishing their header.
++// Keep the same Mach file-descriptor transport when building with SDK 15.2.
++extern "C" int fileport_makeport(int, mach_port_t*);
++extern "C" int fileport_makefd(mach_port_t);
++#endif
+ 
+ #include "base/apple/mach_logging.h"
+ #include "base/apple/scoped_mach_port.h"

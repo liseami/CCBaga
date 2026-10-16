@@ -49,7 +49,7 @@ class PreparationTests(unittest.TestCase):
         app = self.volume / 'Chromium.app'
         (app / 'Contents/MacOS').mkdir(parents=True)
         (app / 'Contents/Resources').mkdir()
-        (app / 'Contents/MacOS/chrome').write_bytes(b'fixture executable')
+        (app / 'Contents/MacOS/chrome').write_bytes(b'\xcf\xfa\xed\xfe fixture executable')
         (app / 'Contents/MacOS/chrome').chmod(0o755)
         (app / 'Contents/Resources/icudtl.dat').write_bytes(b'complete resource')
         (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({
@@ -115,9 +115,10 @@ class PreparationTests(unittest.TestCase):
     @contextlib.contextmanager
     def platform_fixture(self, system):
         with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ, {'CC_MACOS_ENGINE_URL': '', 'CC_MACOS_ENGINE_SHA256': ''}))
             stack.enter_context(patch.object(browser, 'ROOT', self.root))
             stack.enter_context(patch.object(browser.platform, 'system', return_value=system))
-            stack.enter_context(patch.object(browser.platform, 'machine', return_value='x86_64'))
+            stack.enter_context(patch.object(browser.platform, 'machine', return_value='arm64' if system == 'Darwin' else 'x86_64'))
             stack.enter_context(patch.object(browser.subprocess, 'run', side_effect=self.run_tool))
             stack.enter_context(patch.object(browser.subprocess, 'check_output', side_effect=self.output_tool))
             stack.enter_context(patch.object(browser.hashlib, 'file_digest', return_value=SimpleNamespace(hexdigest=lambda: DIGESTS[system])))
@@ -128,11 +129,11 @@ class PreparationTests(unittest.TestCase):
         with self.platform_fixture(system) as target:
             self.interrupt = True
             with self.assertRaises((OSError, subprocess.CalledProcessError)):
-                browser.main()
+                browser.main([])
             self.assertFalse(target.exists(), 'An interrupted copy must not publish a partial engine')
             self.assertEqual(list(target.parent.glob('.*-stage-*')), [])
             self.interrupt = False
-            browser.main()
+            browser.main([])
             resource = target / ('Contents/Resources/icudtl.dat' if system == 'Darwin' else 'icudtl.dat')
             self.assertEqual(resource.read_bytes(), b'complete resource')
             self.assertEqual(self.downloads, 2)
@@ -151,7 +152,7 @@ class PreparationTests(unittest.TestCase):
             marker = target / 'existing'
             marker.write_bytes(b'preserve existing engine')
             with self.assertRaisesRegex(SystemExit, 'already exists'):
-                browser.main()
+                browser.main([])
             self.assertEqual(marker.read_bytes(), b'preserve existing engine')
             self.assertEqual(list(target.iterdir()), [marker])
             self.assertEqual(self.downloads, 0)
@@ -164,7 +165,7 @@ class PreparationTests(unittest.TestCase):
         with self.platform_fixture(system) as target, patch.object(browser.shutil, 'rmtree', side_effect=cleanup):
             self.interrupt = True
             with self.assertRaises((RuntimeError, OSError, subprocess.CalledProcessError)) as failure:
-                browser.main()
+                browser.main([])
             self.assertIsInstance(failure.exception, RuntimeError)
             self.assertIn('Could not remove engine staging directory at', str(failure.exception))
             self.assertFalse(target.exists())
@@ -178,7 +179,7 @@ class PreparationTests(unittest.TestCase):
 
     def complete_preparation(self, system):
         with self.platform_fixture(system) as target:
-            browser.main()
+            browser.main([])
             resource = target / ('Contents/Resources/icudtl.dat' if system == 'Darwin' else 'icudtl.dat')
             self.assertEqual(resource.read_bytes(), b'complete resource')
             self.assertEqual(self.downloads, 1)

@@ -1,5 +1,5 @@
 # [INPUT]: release 分支 commit、锁定依赖与 GitHub Secrets 中的 Apple 与更新签名凭据。
-# [OUTPUT]: macOS 双应用 DMG、Linux DEB/RPM/AppImage/Arch 包、Windows 当前用户 NSIS 安装器、带版本签名的主程序更新与公开清单、SHA-256、递增版本 tag 和 GitHub Release。
+# [OUTPUT]: 两架构 macOS 双应用 DMG、Linux 四格式、Windows NSIS、三目标签名更新、摘要与统一版本 Release。
 # [POS]: release 自动发布与 main 手动旧安装样本验证；后者不签名/发布，仅仓库所有者触发/重跑，拒绝 fork、PR 或其他发布者。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 name: Release
@@ -47,7 +47,19 @@ jobs:
   build:
     needs: version
     if: github.repository == 'liseami/CCBaga' && github.ref == 'refs/heads/release' && github.actor == 'liseami' && github.triggering_actor == 'liseami'
-    runs-on: macos-15
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      CC_MACOS_ENGINE_URL: ${{ matrix.arch == 'x86_64' && vars.CCBAGA_INTEL_ENGINE_URL || '' }}
+      CC_MACOS_ENGINE_SHA256: ${{ matrix.arch == 'x86_64' && vars.CCBAGA_INTEL_ENGINE_SHA256 || '' }}
     timeout-minutes: 120
     outputs:
       version: ${{ needs.version.outputs.version }}
@@ -68,7 +80,7 @@ jobs:
           python-version: '3.13'
       - name: Prepare locked toolchain and engine
         run: |
-          test "$(uname -m)" = arm64
+          test "$(uname -m)" = "${{ matrix.arch }}"
           rustup toolchain install 1.98.1 --profile minimal
           rustup default 1.98.1
           bun install --frozen-lockfile
@@ -92,6 +104,9 @@ jobs:
           python3 scripts/test-sign-browser.py
           python3 scripts/test-release-env.py
           python3 scripts/test-install-apps.py
+          python3 scripts/test-macos-intel-engine.py
+          python3 scripts/test-macos-packaging.py
+          python3 scripts/test-assemble-release.py
           python3 skills/ccbaga-network/scripts/test_network.py
           bash -n skills/ccbaga-network/scripts/setup-vps.sh
           CC_SIGN_IDENTITY=- sh scripts/package-browser.sh
@@ -137,14 +152,14 @@ jobs:
           rm -f "$RUNNER_TEMP/cctool-signing.p12" "$RUNNER_TEMP/cctool-notary.p8"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: macos-${{ github.run_id }}
+          name: macos-${{ matrix.arch }}-${{ github.run_id }}
           path: |
             releases/*.dmg
             releases/*.app.tar.gz
             releases/*.sig
-            releases/latest.json
-            releases/SHA256SUMS
-            releases/notarization.json
+            releases/latest-macos-${{ matrix.arch }}.json
+            releases/macOS-${{ matrix.arch }}-SHA256SUMS
+            releases/notarization-macos-${{ matrix.arch }}.json
           if-no-files-found: error
           retention-days: 14
   linux:
@@ -348,7 +363,8 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: macos-${{ github.run_id }}
+          pattern: macos-*-${{ github.run_id }}
+          merge-multiple: true
           path: releases
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:

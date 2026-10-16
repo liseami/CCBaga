@@ -1,0 +1,2 @@
+# Unified diff context lines retain their required whitespace as patch data.
+scripts/*.patch -whitespace

@@ -20,6 +20,7 @@ releases/
 browser-runtime/Browser.app/
 browser-runtime/Browser.zip
 .venv-release/
+.venv-engine/
 *.key
 
 browser-runtime/LinuxBrowser/

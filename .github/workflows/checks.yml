@@ -1,4 +1,4 @@
-# [INPUT]: PR 合并提交或 main 源码、三平台原生工具与初始引擎准备的离线文件树。
+# [INPUT]: PR 合并提交或 main 源码、三平台（macOS 双架构）工具与引擎准备离线样本。
 # [OUTPUT]: 前端/原生/Skill、发布装配与平台回归结果，不交付安装包。
 # [POS]: 无凭据 PR/main 检查；不签名、不发布、不下载引擎，独立于 release.yml。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -25,6 +25,8 @@ jobs:
             runner: ubuntu-22.04
           - platform: macOS
             runner: macos-15
+          - platform: macOS-Intel
+            runner: macos-15-intel
           - platform: Windows
             runner: windows-2025
     runs-on: ${{ matrix.runner }}
@@ -52,6 +54,10 @@ jobs:
           python-version: '3.13'
       - name: Browser preparation regression
         run: python scripts/test-fetch-browser.py
+      - name: Intel engine build boundaries (offline)
+        run: |
+          python scripts/test-macos-intel-engine.py
+          python scripts/test-macos-packaging.py
       - name: Prepare Ubuntu tools
         if: runner.os == 'Linux'
         run: |

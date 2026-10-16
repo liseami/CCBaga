@@ -9,12 +9,30 @@ use std::{
     time::Duration,
 };
 use tauri_plugin_updater::UpdaterExt;
+#[cfg(target_os = "macos")]
+#[test]
+fn native_macos_updater_selects_its_matching_architecture() {
+    let expected = match std::env::consts::ARCH {
+        "x86_64" => "darwin-x86_64",
+        "aarch64" => "darwin-aarch64",
+        other => panic!("Unsupported macOS updater architecture: {other}"),
+    };
+    assert_eq!(tauri_plugin_updater::target().as_deref(), Some(expected));
+}
+
 fn verify(mut manifest: Value, key: &str, bytes: &[u8]) -> Result<(), String> {
     // ----- 仅测试允许本机 HTTP；生产仍使用配置中的公开 HTTPS -----
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
-    let target = if manifest["platforms"]["windows-x86_64"].is_object() { "windows-x86_64" } else { "darwin-aarch64" };
-    manifest["platforms"][target]["url"] = json!(format!("http://{address}/archive"));
+    let platforms = manifest["platforms"].as_object().ok_or("Missing platforms")?;
+    if platforms.len() != 1 {
+        return Err("A signed archive verification requires exactly one target".into());
+    }
+    let target = platforms.keys().next().unwrap().clone();
+    if !["windows-x86_64", "darwin-aarch64", "darwin-x86_64"].contains(&target.as_str()) {
+        return Err("Unsupported updater verification target".into());
+    }
+    manifest["platforms"][&target]["url"] = json!(format!("http://{address}/archive"));
     let responses = [serde_json::to_vec(&manifest).unwrap(), bytes.to_vec()];
     let server = std::thread::spawn(move || {
         for body in responses {
@@ -44,7 +62,7 @@ fn verify(mut manifest: Value, key: &str, bytes: &[u8]) -> Result<(), String> {
         .unwrap();
     let updater = app
         .updater_builder()
-        .target(target)
+        .target(&target)
         .executable_path("/tmp/ccbaga-test.app/Contents/MacOS/app")
         .version_comparator(|_, _| true)
         .timeout(Duration::from_secs(30))
@@ -75,12 +93,14 @@ fn official_signature_rejects_tampered_bytes_and_announced_version() {
     // ----- Tauri plugins-workspace 公开向量：只有公钥和签名，没有私钥 -----
     let key = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0OUVGNDc0NkZBNkU2RDcKUldUWDVxWnZkUFNlcERHV2cyYno4bjZBclFuQk13Z1FLMWdlVm9zb3JjYkx6Y3VuRCtLSitjWWU=";
     let signature = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUWDVxWnZkUFNlcFBGMnpzanZQL0wvVFF0QkxSbldSdmFxKzRvbUsxVUV1Z3RRcC9VU3JHaUkxdjc2MnNEeTNpZDNhb3I3YlJDOUVUeWVvdDZsTUhIcldvWjVoalVNMVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNjQ5MDUxCWZpbGU6cGF5bG9hZAl2ZXJzaW9uOjIuMC4wCkREcTJDTE9FbDVjUW1DMmVKUkhsblpQVlZpT1pzdTFDanBQS1FvZWk0QS9YQmZrRHFHTzBCK1FNcmNySGdFUTVxVjNtbmU3NXRkRldoSnBxVVhoOUFBPT0=";
-    let manifest = json!({"version":"2.0.0","platforms":{"darwin-aarch64":{"url":"https://example.invalid/app.tar.gz","signature":signature}}});
-    verify(manifest.clone(), key, b"test").unwrap();
-    assert!(verify(manifest.clone(), key, b"tampered").is_err());
-    let mut forged = manifest;
-    forged["version"] = json!("9.9.9");
-    assert!(verify(forged, key, b"test").is_err());
+    for target in ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"] {
+        let manifest = json!({"version":"2.0.0","platforms":{target:{"url":"https://example.invalid/app.tar.gz","signature":signature}}});
+        verify(manifest.clone(), key, b"test").unwrap();
+        assert!(verify(manifest.clone(), key, b"tampered").is_err());
+        let mut forged = manifest;
+        forged["version"] = json!("9.9.9");
+        assert!(verify(forged, key, b"test").is_err());
+    }
 }
 #[test]
 #[ignore = "发布脚本提供真实签名包后显式执行"]

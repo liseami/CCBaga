@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# [INPUT]: Browser.app、CC_SIGN_IDENTITY 与仅供 Chromium Renderer/GPU 的 JIT entitlement。
+# [INPUT]: Browser.app 或显式 --app 候选包、CC_SIGN_IDENTITY 与仅供 Chromium Renderer/GPU 的 JIT entitlement。
 # [OUTPUT]: 内层 Mach-O、Helper 应用、Framework 与浏览器外壳按依赖顺序签名，正式证书启用 Hardened Runtime/可信时间戳；本机临时签名清除 runtime，避免无 Team ID 的 Framework 被库验证拒绝。
 # [POS]: 浏览器品牌化后的签名边界；不使用深层自动重签，不读取 Apple 私钥，公证由发布脚本独立执行。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -24,11 +25,12 @@ def sign(path, jit=False):
     subprocess.run([*args, str(path)], check=True)
 
 
-def main():
-    if not (APP / 'Contents/MacOS/Chromium').is_file():
-        raise SystemExit('Missing browser-runtime/Browser.app/Contents/MacOS/Chromium')
+def main(app=None):
+    app = app if app is not None else APP
+    if not (app / 'Contents/MacOS/Chromium').is_file():
+        raise SystemExit(f'Missing {app}/Contents/MacOS/Chromium')
     binaries, bundles = [], []
-    for base, directories, files in os.walk(APP, followlinks=False):
+    for base, directories, files in os.walk(app, followlinks=False):
         directories[:] = [name for name in directories if not (Path(base) / name).is_symlink()]
         for name in directories:
             path = Path(base) / name
@@ -46,9 +48,11 @@ def main():
         sign(path)
     for path in sorted(bundles, key=lambda p: len(p.parts), reverse=True):
         sign(path, path.name in ['Chromium Helper (Renderer).app', 'Chromium Helper (GPU).app'])
-    sign(APP)
-    subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(APP)], check=True)
+    sign(app)
+    subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--app', type=Path, default=APP)
+    main(parser.parse_args().app)

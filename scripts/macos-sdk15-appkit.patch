@@ -1,0 +1,17 @@
+--- a/ui/display/mac/screen_utils_mac.mm
++++ b/ui/display/mac/screen_utils_mac.mm
+@@ -3,6 +3,14 @@
+ // found in the LICENSE file.
+ 
+ #include "ui/display/mac/screen_utils_mac.h"
++
++#if __MAC_OS_X_VERSION_MAX_ALLOWED < 260000
++// Declare the macOS 26 getter missing from older SDKs. Calls remain guarded
++// by the existing @available check, with the original older-system fallback.
++@interface NSScreen (CCBagaSDKCompatibility)
++@property(readonly) CGDirectDisplayID CGDirectDisplayID API_AVAILABLE(macos(26.0));
++@end
++#endif
+ 
+ namespace display {
+ 

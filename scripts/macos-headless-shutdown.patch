@@ -1,0 +1,24 @@
+--- a/chrome/browser/ui/startup/startup_browser_creator_impl.cc
++++ b/chrome/browser/ui/startup/startup_browser_creator_impl.cc
+@@ -372,14 +372,14 @@
+               [](base::WeakPtr<Browser> browser,
+                  std::unique_ptr<ScopedProfileKeepAlive> profile_keepalive,
+                  headless::HeadlessCommandHandler::Result result) {
++#if BUILDFLAG(IS_MAC)
++                // On Macs Chrome keeps running after the last browser window
++                // is closed. Command processing may already have closed that
++                // window, so always release the application keep-alive before
++                // checking the weak browser reference.
++                app_controller_mac::AllowApplicationToTerminate();
++#endif
+                 if (browser && browser->window()) {
+-#if BUILDFLAG(IS_MAC)
+-                  // On Macs Chrome keeps running after the last browser
+-                  // window is closed which is not expected for headless
+-                  // command execution, so explicitly allow application
+-                  // to terminate after the browser window is closed.
+-                  app_controller_mac::AllowApplicationToTerminate();
+-#endif
+                   browser->window()->Close();
+                 }
+               },
