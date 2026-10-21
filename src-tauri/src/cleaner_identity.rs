@@ -1,5 +1,5 @@
 // [INPUT]: Cleaner 白名单、共享 Code 登录键常量、完整目录快照、用户保留策略与 JSON 配置。
-// [OUTPUT]: 受限身份目标、窄配置提取/清空/恢复、保留策略与桌面身份元数据检测、区分查询错误的进程结果和瞬态锁分类；不自动删除锁。
+// [OUTPUT]: 受限身份目标、稳定的根目录历史备份许可、窄配置提取/清空/恢复、保留策略与桌面身份元数据检测、区分查询错误的进程结果和瞬态锁分类；不自动删除锁。
 // [POS]: 身份保险库复用原有路径边界；不扫描项目源码、Shell 或系统代理配置。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -225,7 +225,17 @@ pub(crate) fn allowed(root: &Path, source: &Source) -> bool {
                     .and_then(|s| s.to_str())
                     .is_some_and(|s| s.starts_with(prefix))
         });
-    known || special
+    let root_backup = source.keys.is_empty()
+        && source.category == "backups"
+        && source.path.parent() == Some(root)
+        && source
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| {
+                name == ".claude.json.backup" || name.starts_with(".claude.json.backup.")
+            });
+    known || special || root_backup
 }
 pub(crate) fn fingerprint(path: &Path) -> Result<Vec<u8>, String> {
     Ok(targets::measure(path)?.2)

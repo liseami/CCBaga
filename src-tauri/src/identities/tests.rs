@@ -1,5 +1,5 @@
 // [INPUT]: 身份保险库与临时文件系统样本。
-// [OUTPUT]: SQLite 策略持久化、完整认证归档、真实阶段/局部完成计数/回滚事件与 Windows 超长暂存路径回归，不读取真实 Claude 凭据。
+// [OUTPUT]: SQLite 策略持久化、完整认证归档、生成型调试链接跳过、真实阶段/局部完成计数/回滚事件与 Windows 超长暂存路径回归，不读取真实 Claude 凭据。
 // [POS]: 身份管理的离线验证入口；平台真实登入需用户验收。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -301,6 +301,85 @@ fn selected_symlink_is_refused_without_changing_source() {
         std::fs::read_to_string(folder.join("outside")).unwrap(),
         "keep"
     );
+    drop(store);
+    std::fs::remove_dir_all(folder).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn generated_debug_latest_symlink_does_not_block_identity_switch() {
+    let folder = canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!("baga-identity-test-{}", new_id().unwrap()));
+    let home = folder.join("home");
+    let debug = home.join(".claude/debug");
+    private::directory(&debug).unwrap();
+    fixture_write(debug.join("session.log"), "inside").unwrap();
+    fixture_write(folder.join("outside.log"), "outside").unwrap();
+    std::os::unix::fs::symlink(folder.join("outside.log"), debug.join("latest")).unwrap();
+
+    let mut store = store::Store::open(&folder.join("vault"), &home).unwrap();
+    let reporter = Reporter::channel(None);
+    store
+        .switch("empty", "saved", &Policy::default(), &reporter)
+        .unwrap();
+    let saved = store
+        .records()
+        .into_iter()
+        .find(|record| !record.empty)
+        .unwrap();
+
+    assert!(!debug.exists());
+    assert_eq!(
+        std::fs::read_to_string(folder.join("outside.log")).unwrap(),
+        "outside"
+    );
+    store
+        .switch(&saved.id, "empty", &Policy::default(), &reporter)
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(debug.join("session.log")).unwrap(),
+        "inside"
+    );
+    assert!(std::fs::symlink_metadata(debug.join("latest")).is_err());
+    assert_eq!(
+        std::fs::read_to_string(folder.join("outside.log")).unwrap(),
+        "outside"
+    );
+
+    drop(store);
+    std::fs::remove_dir_all(folder).unwrap();
+}
+
+#[test]
+fn archived_root_backup_remains_allowed_after_source_is_cleared() {
+    let folder = canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!("baga-identity-test-{}", new_id().unwrap()));
+    let home = folder.join("home");
+    private::directory(&home).unwrap();
+    fixture_write(home.join(".claude.json.backup"), "backup").unwrap();
+
+    let mut store = store::Store::open(&folder.join("vault"), &home).unwrap();
+    let reporter = Reporter::channel(None);
+    store
+        .switch("empty", "saved", &Policy::default(), &reporter)
+        .unwrap();
+    let saved = store
+        .records()
+        .into_iter()
+        .find(|record| !record.empty)
+        .unwrap();
+    assert!(!home.join(".claude.json.backup").exists());
+
+    store
+        .switch(&saved.id, "empty", &Policy::default(), &reporter)
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(home.join(".claude.json.backup")).unwrap(),
+        "backup"
+    );
+
     drop(store);
     std::fs::remove_dir_all(folder).unwrap();
 }

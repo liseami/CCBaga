@@ -1,5 +1,5 @@
 // [INPUT]: 白名单身份源、SQLite 账号目录、Zstandard/旧 gzip 与认证加密流。
-// [OUTPUT]: 不可变归档代次与短期解包区，逐源完成/压缩落盘/完整归档验收的真实局部进度；排除明确瞬态锁但不删除原件，首身份复用空浏览器编号。
+// [OUTPUT]: 不可变归档代次与短期解包区，逐源完成/压缩落盘/完整归档验收的真实局部进度；排除明确瞬态锁和可重建调试指针但不删除原件，首身份复用空浏览器编号。
 // [POS]: 保险库的数据格式边界，与 store 的工作区切换事务分离，旧 gzip 归档保持可读。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{
@@ -46,8 +46,13 @@ pub(super) fn walk(
     base: &Path,
     visit: &mut impl FnMut(&Path, &Path, bool) -> Result<(), String>,
 ) -> Result<(), String> {
-    private::safe(path)?;
     let meta = fs::symlink_metadata(path).map_err(problem)?;
+    if meta.file_type().is_symlink()
+        && path.ends_with(Path::new(".claude").join("debug").join("latest"))
+    {
+        return Ok(());
+    }
+    private::safe(path)?;
     visit(
         path,
         path.strip_prefix(base).map_err(problem)?,
