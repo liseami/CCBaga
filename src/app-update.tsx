@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 原生 runtime_platform、Tauri 官方 updater/process 插件、应用版本、共享 YAML、Cromma UI 与父层事务锁。
- * [OUTPUT]: 侧栏检查更新、静默启动检查、真实下载进度和经签名核验的安装/重启；失败可重试。
+ * [OUTPUT]: 侧栏检查更新、静默启动检查、真实下载进度和经签名核验的安装/重启；失败可重试；Intel 社区构建只接受完整 A+B 安装包。
  * [POS]: 原生插件校验与替换；macOS 更新 A、B 使用 DMG，Windows 先退出 B 后以 NSIS 更新两程序；Linux 使用包管理器。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,7 +31,12 @@ export function AppUpdate({blocked,onBusy}:{blocked:boolean;onBusy:(busy:boolean
     if(running.current||installed.current)return;
     running.current=true;setPhase('checking');setError('');
     try{
-      if(await invoke<string>('runtime_platform') === 'linux'){
+      const platform=await invoke<string>('runtime_platform');
+      if(platform==='macos'&&await invoke<string>('runtime_arch')==='x86_64'){
+        if(live.current){setPhase('idle');if(show)setError(t('此 Intel 构建请使用完整 A+B 安装包更新，官方更新源未提供 Intel 版本。'));}
+        return;
+      }
+      if(platform === 'linux'){
         if(live.current){setPhase('idle');if(show)setError(t('Linux 版本请通过安装包或源码更新，当前更新源仅提供 macOS。'));}
         return;
       }

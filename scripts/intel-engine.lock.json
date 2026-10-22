@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "engine_version": "148.0.7778.215",
+  "target_architecture": "x86_64",
+  "fingerprint_revision": "13b89eae304123f0710f2d33fd0816a2f61d7ffc",
+  "macos_revision": "6a00dfe08591a15cfb0aed0edd292ba789d9a0d7",
+  "bindgen_revision": "d874de8d646d9b8a3e7ba2db2bcd52f2fba8f1f5",
+  "downloads": {
+    "fingerprint": {
+      "filename": "fingerprint-13b89eae304123f0710f2d33fd0816a2f61d7ffc.tar.gz",
+      "url": "https://codeload.github.com/adryfish/fingerprint-chromium/tar.gz/13b89eae304123f0710f2d33fd0816a2f61d7ffc",
+      "algorithm": "sha256",
+      "digest": "4e7ee31bfb7a3fbff3581037397caa4ab0940a17ba07babaeacc28ded5c05b01",
+      "root": "fingerprint-chromium-13b89eae304123f0710f2d33fd0816a2f61d7ffc"
+    },
+    "macos": {
+      "filename": "macos-6a00dfe08591a15cfb0aed0edd292ba789d9a0d7.tar.gz",
+      "url": "https://codeload.github.com/ungoogled-software/ungoogled-chromium-macos/tar.gz/6a00dfe08591a15cfb0aed0edd292ba789d9a0d7",
+      "algorithm": "sha256",
+      "digest": "ba0d50c2404ead83c99332b582b665e131a410876f422eb643dc28f72d58b6c1",
+      "root": "ungoogled-chromium-macos-6a00dfe08591a15cfb0aed0edd292ba789d9a0d7"
+    },
+    "bindgen": {
+      "filename": "bindgen-d874de8d646d9b8a3e7ba2db2bcd52f2fba8f1f5.tar.gz",
+      "url": "https://codeload.github.com/rust-lang/rust-bindgen/tar.gz/d874de8d646d9b8a3e7ba2db2bcd52f2fba8f1f5",
+      "algorithm": "sha256",
+      "digest": "06898fc060283e1f504c9203962c6d27c9fa98cbdc27cf1c4052a5720660d39d",
+      "root": "rust-bindgen-d874de8d646d9b8a3e7ba2db2bcd52f2fba8f1f5"
+    },
+    "chromium": {
+      "filename": "chromium-148.0.7778.215-lite.tar.xz",
+      "url": "https://commondatastorage.googleapis.com/chromium-browser-official/chromium-148.0.7778.215-lite.tar.xz",
+      "algorithm": "sha256",
+      "digest": "27b23b4c7877f41dcbf96fd3c17104f2de7c3df20569d9e19debba438094ba81",
+      "root": "chromium-148.0.7778.215"
+    },
+    "llvm_arm64": {
+      "filename": "clang+llvm-22.1.0-arm64-apple-darwin24.0.tar.xz",
+      "url": "https://github.com/implicitfield/llvm-macos-buildbot/releases/download/22.1.0-arm64/clang+llvm-22.1.0-arm64-apple-darwin24.0.tar.xz",
+      "algorithm": "sha512",
+      "digest": "8b80075e335c7348a8b0e8284b706cfd312e0c9e910a31152f776fc2ff878e9b3d82a5c2dbe1ceab59ed3601f597a087fbf8e5ef5e0e3a1014c596b7d742d6ba",
+      "root": "clang+llvm-22.1.0-arm64-apple-darwin24.0"
+    },
+    "node_arm64": {
+      "filename": "node-v24.12.0-darwin-arm64.tar.xz",
+      "url": "https://nodejs.org/dist/v24.12.0/node-v24.12.0-darwin-arm64.tar.xz",
+      "algorithm": "sha512",
+      "digest": "cd6b64563c73c4b482b557ab6715f513a1edde1fd05c33718d3bc0ab2361701b932953334c7fa07246f935dc5e36e74c10cb86d98ef59a6ac745b9f889e3bdcd",
+      "root": "node-v24.12.0-darwin-arm64"
+    },
+    "rust_arm64": {
+      "filename": "rust-nightly-2026-02-27-aarch64-apple-darwin.tar.xz",
+      "url": "https://static.rust-lang.org/dist/2026-02-27/rust-nightly-aarch64-apple-darwin.tar.xz",
+      "algorithm": "sha256",
+      "digest": "a7cfb30246204096d1d77481e0aa274b98762c529f85bd5a2064fcb68b777d97",
+      "root": "rust-nightly-aarch64-apple-darwin"
+    },
+    "llvm_x86_64": {
+      "filename": "clang+llvm-22.1.0-x86-64-apple-darwin24.0.tar.xz",
+      "url": "https://github.com/implicitfield/llvm-macos-buildbot/releases/download/22.1.0-x86-64/clang+llvm-22.1.0-x86-64-apple-darwin24.0.tar.xz",
+      "algorithm": "sha512",
+      "digest": "99ed71801934a9a64df976663377958ec3649a1bd322303251e4ca3e2965180c88142f9eae9dabd1192d0886f9076a2cc4966bc558868e782e95d033907bb7bc",
+      "root": "clang+llvm-22.1.0-x86-64-apple-darwin24.0"
+    },
+    "node_x86_64": {
+      "filename": "node-v24.12.0-darwin-x64.tar.xz",
+      "url": "https://nodejs.org/dist/v24.12.0/node-v24.12.0-darwin-x64.tar.xz",
+      "algorithm": "sha512",
+      "digest": "3c1d16659764852555b0e23063e75c2fe64b7423d817093c5215a712ef6e16869279d78ccc85ed98d45694c333ad941c6fff289337ed6af869b18880972d0998",
+      "root": "node-v24.12.0-darwin-x64"
+    },
+    "rust_x86_64": {
+      "filename": "rust-nightly-2026-02-27-x86_64-apple-darwin.tar.xz",
+      "url": "https://static.rust-lang.org/dist/2026-02-27/rust-nightly-x86_64-apple-darwin.tar.xz",
+      "algorithm": "sha256",
+      "digest": "b6fa0f493ce86d7c9e606e24759d16e20ec9b3c3bd778ac36c99c4eb45d07fbd",
+      "root": "rust-nightly-x86_64-apple-darwin"
+    }
+  },
+  "gn_overrides": [
+    "target_cpu=\"x64\"",
+    "symbol_level=0",
+    "use_thin_lto=false",
+    "use_v8_context_snapshot=false"
+  ],
+  "gn_args_sha256": "0ab584ddb559a50d7ac72b08520400ef0845e3509d8f83482ac52d4707989377",
+  "bindgen_lock_sha256": "cedf9ea814df3738a24594d15083f3487b761786501651ba03c30d5e59dab5cc",
+  "bindgen_builder_sha256": {
+    "upstream_patched": "9a87937e4c71e193fd62d1c35eca3bce4772a8eb059d62a2d389742329ffe5dc",
+    "cargo_locked": "b3c77c0e2a0307b5427162a916b4cdddb7e7d715e70b820b204dbdea5bee50b6"
+  },
+  "patched_source_sha256": {
+    "third_party/blink/common/user_agent/user_agent_metadata.cc": "c3ea00825731429a6a6595b23f5b78e7bdf44077517c6310519e55a3383aa5cc",
+    "third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc": "078da3d5eeb92cd6e5d3637d93959e8fd50541475926b8b3fd9fdfc71200ce37"
+  },
+  "validated_python": "3.13.14",
+  "ninja_package_version": "1.13.2"
+}

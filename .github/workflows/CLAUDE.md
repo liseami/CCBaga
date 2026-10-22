@@ -5,3 +5,5 @@ checks.yml: 三平台初始引擎准备文件树与真实 Vite 产物资源引�
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
 PR 三平台同时运行 test-assemble-release.py，使用临时假安装器核对完整九文件交付与平台摘要遗漏拒绝，不使用签名材料或发布权限。
+
+checks.yml 的 macOS 检查另运行 test-intel-engine.py：仅离线归档/哈希/工作区契约样本，不下载或编译 Chromium，不接触发布凭据。

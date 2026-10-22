@@ -1,0 +1,4 @@
+# Validated native Python tooling; LLVM/Rust/Node/Chromium use intel-engine.lock.json.
+ninja==1.13.2
+httplib2==0.32.0
+PySocks==1.7.1

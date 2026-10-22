@@ -2,7 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 make-icon.swift: AppKit 将压缩品牌图绘入 macOS 圆角网格，保持原图并添加透明留白与投影。
 make-icons.sh: 从 assets/ 品牌图生成各尺寸 iconset，iconutil 输出 src-tauri/icons 与 browser-runtime/icons。
-brand-browser.sh: 编译 CCBrowser 入口、写入 CCBaga-B 名称/图标/各语言显示名、清除构建资源扩展属性并调用 sign-browser.py 完整签名（显式固定 ai.local.requirement-french.browser，干净上游引擎也必须与宿主一致）。
+brand-browser.sh: 默认保留 arm64，显式 CC_MACOS_ARCH=x86_64 时先核验引擎再编译同架构 CCBrowser 入口、写入 CCBaga-B 名称/图标/各语言显示名、清除构建资源扩展属性并调用 sign-browser.py 完整签名（显式固定 ai.local.requirement-french.browser，干净上游引擎也必须与宿主一致）。
 sign-browser.py: 内层 Mach-O → Helper 应用 → Framework → 浏览器外壳顺序签名；Developer ID 使用可信时间戳、Hardened Runtime，仅 Renderer/GPU 使用 JIT entitlement；本机临时签名清除 runtime，防止缺 Team ID 的 Framework 被库验证拒绝。
 test-release-env.py: 伪造凭据环境导入真实发布入口，断言 Apple/更新私钥不进入构建子进程环境，不加载真实密钥，并验证票据网络重试不绕过无效/持续失败。
 test-sign-browser.py: 临时伪引擎树验证叶子到容器的签名顺序、最小 JIT 授权与符号链接不重复遍历。
@@ -48,3 +48,11 @@ test-package-linux-browser.py: 四种目录移动取消恢复及取消后恢复�
 test-browser-cleanup.ts: 复用身份测试入口的 browser 模式，验证无缓存全清理、默认取消/强制勾选、精确删除参数、任务锁/真实 Channel 进度、失败与双语；仅内存 IPC，无原生或真实用户资料。
 test-browser-profiles.ts: 固定引擎的真实持久资料隔离回归；虚构 Cookie/LocalStorage 的 A/B 隔离、重开恢复和空资料，仅临时 HOME/本机页面。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+bundle-intel-macos.py: 外部自编译 148 x86_64 指纹引擎经过架构/行为/版本核验后构建完整社区 A+B DMG；沿用上游启动和身份隔离，不安装、不公证、不发布。
+test-intel-browser.cjs: 回环页面与独立资料测试 CPU/语言/时区/Canvas 和 Intel 8 核/15.7.7/.215；只执行原始 Chromium，不能用会唤起 A 的上游 CCBrowser 做独立测试。
+test-intel-updater.ts: 独立 Bun 进程执行真实 AppUpdate 的启动/按钮检查；虚构 IPC 与 React hooks 验证 Intel 不接触官方更新器，ARM/Windows/Linux 保留原路由，不联网或安装。
+build-intel-engine.py: 固定归档/工具链/补丁的独立 Intel 引擎构建，plan/prepare/build/只读verify；新目录所有权与中断状态、哈希和源契约检查、bindgen --locked，不安装或签名发布。
+intel-engine.lock.json: Chromium/指纹/macOS/bindgen及两种宿主LLVM/Rust/Node下载摘要、GN参数和补丁后关键源摘要；不引用latest。
+intel-engine-requirements.txt: 独立Python工具环境的固定Ninja/下载工具依赖；不修改系统Python。
+test-intel-engine.py: 离线临时样本覆盖校验失败保留、归档越界拒绝、宿主/目标分离、未知工作区拒绝与失败不报完成/编译恢复。

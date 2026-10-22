@@ -1263,3 +1263,5 @@
 "锁路径内容不明，文件残留清理将保留此路径。": "Lock path contents are unknown. File cleanup will preserve this path."
 
 "我确认备份来源可信，并了解恢复配置或插件可能执行其命令。": "I trust this backup’s source and understand restored settings or plugins may run commands."
+
+"此 Intel 构建请使用完整 A+B 安装包更新，官方更新源未提供 Intel 版本。": "Update this Intel build with a complete A+B installer; the official update feed does not provide Intel releases."

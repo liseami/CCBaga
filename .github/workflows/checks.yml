@@ -1,5 +1,5 @@
 # [INPUT]: PR 合并提交或 main 源码、三平台原生工具与初始引擎准备的离线文件树。
-# [OUTPUT]: 前端/原生/Skill、发布装配与平台回归结果；PR 只恢复缓存，仅成功的 main 检查保存依赖缓存，不交付安装包。
+# [OUTPUT]: 前端/原生/Skill、Intel 引擎流程离线契约、发布装配与平台回归结果；PR 只恢复缓存，仅成功的 main 检查保存依赖缓存，不交付安装包。
 # [POS]: 无凭据 PR/main 检查；不签名、不发布、不下载引擎，独立于 release.yml。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 name: Checks
@@ -52,6 +52,9 @@ jobs:
           python-version: '3.13'
       - name: Browser preparation regression
         run: python scripts/test-fetch-browser.py
+      - name: Intel engine recipe offline regression
+        if: runner.os == 'macOS'
+        run: python scripts/test-intel-engine.py
       - name: Prepare Ubuntu tools
         if: runner.os == 'Linux'
         run: |

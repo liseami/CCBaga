@@ -34,3 +34,5 @@ network-skill.ts: npm skills 标准安装命令/agent 标识与运行入口，�
 network-skill.test.ts: 五项工具顺序、安装命令/调用符与完整双语复制内容回归，拒绝混入网络流程描述。
 Linux 呈现边界：设备平台由原生快照提供；未知定位不显示关闭；系统授权提示不固定 macOS；更新入口在 Linux 明确要求通过包或源码更新，不请求用于 macOS/Windows 的签名更新源。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+app-update.tsx 的 Intel 分支: runtime_platform=macos 且 runtime_arch=x86_64 时在请求官方更新前返回，提示完整 A+B 社区包更新；Linux/Windows/Apple Silicon 原路径不变。

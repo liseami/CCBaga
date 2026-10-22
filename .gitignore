@@ -39,3 +39,6 @@ identity-vault/
 *.baga
 identities.sqlite*
 key.bin
+
+# Local provenance for an externally compiled Intel engine
+browser-runtime/intel-origin.json
