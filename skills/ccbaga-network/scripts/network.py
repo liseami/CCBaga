@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # [INPUT]: 本机 0600 JSON、完整三文件密钥、OpenSSH/curl 和本 Skill UTF-8 部署脚本及相邻 Windows 原生边界。
-# [OUTPUT]: 分阶段密钥/连接/出口核验、显式部署、私密订阅文件与 TUN 实测。
+# [OUTPUT]: 分阶段密钥/连接/出口核验、显式部署、私密订阅文件与 TUN 实测；known_hosts 路径按 ssh_config 转义。
 # [POS]: Skill 的标准库执行层；AI 收集资料后通过标准输入建私密配置；秘密不进入 argv/公开日志，失败不报告部署成功。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 import argparse
@@ -162,6 +162,10 @@ class Key:
         self.temp.cleanup()
 
 
+def ssh_config_quote(value):
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
 def ssh_args(conf, key, config_path, accept_new=False):
     hosts = Path(config_path).expanduser().absolute().parent / 'known_hosts'
     if hosts.is_symlink():
@@ -170,7 +174,7 @@ def ssh_args(conf, key, config_path, accept_new=False):
             '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none',
             '-o', 'PreferredAuthentications=publickey', '-o', 'PasswordAuthentication=no',
             '-o', 'KbdInteractiveAuthentication=no', '-o', 'StrictHostKeyChecking=' + ('accept-new' if accept_new else 'yes'),
-            '-o', 'UserKnownHostsFile="' + hosts.as_posix() + '"', '-o', 'ConnectTimeout=15',
+            '-o', 'UserKnownHostsFile=' + ssh_config_quote(hosts.as_posix()), '-o', 'ConnectTimeout=15',
             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3', '-i', str(key), conf['vps']]
 
 
