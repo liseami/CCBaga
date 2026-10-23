@@ -24,7 +24,7 @@ cleaner_targets.rs: 官方已确认的会话计划/附件/环境/任务/终端�
 cleaner_config.rs: 账号缓存和代理认证配置的窄范围变换；Code 文件登录键独立白名单复用于身份和残留，保留共享 MCP/插件秘密和其他配置，仅返回键名。
 cleaner_io.rs: 清理后配置原子写入；Windows 写入前保留原所有者/DACL，临时文件仅保存新内容，失败移除，不保留原配置。
 cleaner_tests.rs: 临时白名单/快照/日志验证，覆盖超过 30,000 文件的完整清理与权限失败保护；官方原生版本路径、自编译并经启动握手的可丢弃进程与 Node 样本验证身份、终止与其他 Node 保留；Windows 子进程隔离的外置 AppData 验证白名单和身份目标，不复制系统平台二进制，不修改用户数据。
-regions.rs: 地区编号到语言、区域格式和代表时区的唯一白名单、ICU/BCP 47 有效区域解析与独立国家/时区匹配；供前端选择与系统/浏览器快捷操作共用，包含目录与本机时区验证。
-linux.rs: Linux procfs 当前用户进程、zoneinfo/timedatectl、GNOME 定位偏好、GNOME/KDE 设置入口与 Wayland/X11 剪贴板；LC_MESSAGES/LC_TIME 分别读取会话语言/区域格式，不匹配时先报手动操作再改时区；未知定位为 null，Linux 钥匙串明确不可用；不将系统代理凭据序列化给 WebView。
+regions.rs: 地区编号到语言、区域格式和代表时区的唯一白名单、ICU/BCP 47 有效区域解析与独立国家/时区匹配；POSIX 代码集不丢掉 @rg 国家覆盖；供前端选择与系统/浏览器快捷操作共用，包含目录与本机时区验证。
+linux.rs: Linux procfs 当前用户进程、zoneinfo/timedatectl、GNOME 定位偏好、GNOME/KDE 设置入口与 Wayland/X11 剪贴板；LC_MESSAGES/LC_TIME 分别读取会话语言/区域格式，机器国家从保留 @rg 的原始区域字符串解析，不匹配时先报手动操作再改时区；未知定位为 null，Linux 钥匙串明确不可用；不将系统代理凭据序列化给 WebView。
 network_links.rs: 固定四域名并发只读 HTTP 探针；下载元数据仅接受 HTTP200、流式最多64字节的三段数字版本，空/畸形/超限/截断均失败且正文不进UI；其他域名维持连通性/浏览器质询语义；重定向只认可无认证的官方HTTPS:443目标，始终不跟随。默认不继承代理认证、不跟随重定向、八秒超时；固定供应商与 Skill 导航白名单，编译消费 providers.json 组装原始 URL，WebView 不能指定 URL；无密钥访问或 SSH 执行。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

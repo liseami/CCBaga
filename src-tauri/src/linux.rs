@@ -1,5 +1,5 @@
 // [INPUT]: 当前用户 procfs、zoneinfo、桌面偏好和本地会话工具。
-// [OUTPUT]: Linux 平台 JSON 桥；未知状态保留 null，会话语言变化要求用户手动操作。
+// [OUTPUT]: Linux 平台 JSON 桥；未知状态保留 null，会话语言变化要求用户手动操作，机器国家保留 POSIX @rg 覆盖。
 // [POS]: 仅原生识别与用户触发的系统操作；不含网络客户端，不向 UI 输出进程参数或代理秘密。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde_json::{json, Value};
@@ -271,11 +271,14 @@ fn timezone() -> String {
             output("timedatectl", &["show", "--property=Timezone", "--value"]).unwrap_or_default()
         })
 }
-fn session_locale(category: &str) -> String {
+fn raw_session_locale(category: &str) -> String {
     ["LC_ALL", category, "LANG"]
         .iter()
         .find_map(|key| std::env::var(key).ok().filter(|s| !s.is_empty()))
         .unwrap_or_else(|| "C".into())
+}
+fn session_locale(category: &str) -> String {
+    raw_session_locale(category)
         .split('.')
         .next()
         .unwrap_or("C")
@@ -333,6 +336,10 @@ pub unsafe fn rf_browser_machine() -> *mut c_char {
         .map(|n| n.get())
         .unwrap_or(1));
     state["locale"] = json!(locale());
+    if let Some(country) = crate::regions::locale_country_from_posix(&raw_session_locale("LC_TIME"))
+    {
+        state["locale_country"] = json!(country);
+    }
     // TUN is the documented route. Do not silently report a desktop proxy as direct.
     let proxy = ["ALL_PROXY", "all_proxy", "HTTPS_PROXY", "https_proxy"]
         .iter()

@@ -1,5 +1,5 @@
 // [INPUT]: 用户选定的国家地区编号。
-// [OUTPUT]: 地区预设、有效区域解析与目标地区匹配；机器语言/脚本不作为国家的替代。
+// [OUTPUT]: 地区预设、有效区域解析与目标地区匹配；机器语言/脚本不作为国家的替代，POSIX 代码集不丢掉 @rg。
 // [POS]: 快捷操作的唯一地区真相源；选择地区不代表实际网络出口已改变。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde::Serialize;
@@ -174,6 +174,31 @@ mod tests {
         assert!(matching("zh-Hans", "Asia/Taipei").is_none());
     }
     #[test]
+    fn posix_codeset_does_not_hide_a_region_override() {
+        assert_eq!(
+            locale_country_from_posix("zh_CN.UTF-8@rg=twzzzz").as_deref(),
+            Some("TW")
+        );
+        assert_eq!(
+            locale_country_from_posix("zh_CN@rg=twzzzz").as_deref(),
+            Some("TW")
+        );
+        assert_eq!(
+            locale_country_from_posix("zh_CN.UTF-8").as_deref(),
+            Some("CN")
+        );
+        assert_eq!(
+            locale_country_from_posix("en_US.UTF-8").as_deref(),
+            Some("US")
+        );
+        assert_eq!(
+            locale_country_from_posix("de_DE.UTF-8@euro").as_deref(),
+            Some("DE")
+        );
+        assert_eq!(locale_country_from_posix("C.UTF-8"), None);
+        assert_eq!(locale_country_from_posix("zh_CN.UTF-8@rg=invalid"), None);
+    }
+    #[test]
     fn catalog_has_unique_ids_and_valid_native_timezones() {
         let machine = crate::browser::config::machine().unwrap();
         for (i, r) in REGIONS.iter().enumerate() {
@@ -198,6 +223,18 @@ pub fn matching(language: &str, timezone: &str) -> Option<&'static Region> {
     REGIONS
         .iter()
         .find(|r| r.language == language && r.timezone == timezone)
+}
+
+/// Country of a raw POSIX locale (`language[_TERRITORY][.codeset][@modifier]`).
+/// A codeset must not discard an `@rg` override.
+pub fn locale_country_from_posix(value: &str) -> Option<String> {
+    let (head, modifier) = value.split_once('@').unwrap_or((value, ""));
+    let base = head.split('.').next().unwrap_or(head);
+    if modifier.is_empty() {
+        locale_country(base)
+    } else {
+        locale_country(&format!("{base}@{modifier}"))
+    }
 }
 
 /// Extract an explicit ISO country from ICU/POSIX or BCP 47 locale identifiers.
