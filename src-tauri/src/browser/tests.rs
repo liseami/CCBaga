@@ -1,5 +1,5 @@
 // [INPUT]: 临时样本、指纹参数、固定清理边界与本机 HTTP 限流样本。
-// [OUTPUT]: 缓存/旧站点清理保留资产，显式完整重置同时清除密码与密钥、全部子 Profile 并隔离兄弟资料；链接/进程重启阻断与真实删除计数；地区/网络回归。
+// [OUTPUT]: 缓存/旧站点清理保留资产，显式完整重置同时清除密码与密钥、全部子 Profile 并隔离兄弟资料；链接/进程重启阻断与真实删除计数；含方案默认端口的代理与地区/网络回归。
 // [POS]: 浏览器模块行为验证；不访问用户实际资料。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -65,6 +65,44 @@ fn proxy_and_real_hardware() {
     assert!(!a
         .iter()
         .any(|x| x.contains("load-extension") || x.contains("disable-web-security")));
+}
+#[test]
+fn explicit_scheme_default_proxy_port_counts_as_specified() {
+    for value in [
+        "http://127.0.0.1:80",
+        "https://proxy.example:443",
+        "http://[::1]:80",
+        "https://[::1]:443/",
+    ] {
+        let url = config::proxy(value)
+            .unwrap_or_else(|error| panic!("{value}: {error}"))
+            .expect(value);
+        assert_eq!(url.port_or_known_default().is_some(), true, "{value}");
+        assert!(url.port().is_none(), "{value}");
+    }
+    for value in [
+        "http://127.0.0.1",
+        "https://proxy.example",
+        "http://[::1]",
+        "https://[::1]",
+        "socks5://127.0.0.1",
+        "socks5h://127.0.0.1",
+    ] {
+        assert!(config::proxy(value).is_err(), "{value}");
+    }
+    let mut config = Config::default();
+    config.proxy = "http://127.0.0.1:80".into();
+    let args = config::arguments(
+        &config,
+        &machine(),
+        Path::new("/profile"),
+        "http://127.0.0.1/page",
+        "148.0.7778.215",
+    );
+    assert!(args.contains(&"--proxy-server=http://127.0.0.1:80".into()));
+    assert!(!args
+        .iter()
+        .any(|argument| argument.starts_with("--host-resolver-rules=")));
 }
 #[test]
 fn cache_isolation_and_direct_delete() {

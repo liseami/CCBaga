@@ -1,5 +1,5 @@
 // [INPUT]: 原生机器快照、独立浏览器配置和实际引擎版本。
-// [OUTPUT]: 含有效国家的机器快照、独立目标地区与 Default 资料参数；仅显式代理时增加回环正向豁免，保留真实设备与 TUN 默认路由。
+// [OUTPUT]: 含有效国家的机器快照、独立目标地区与 Default 资料参数；仅显式代理时增加回环正向豁免，已写明的方案默认端口仍算指定端口，保留真实设备与 TUN 默认路由。
 // [POS]: 浏览器配置真相源；路径来自宿主，输入不能变成额外命令参数。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 #[cfg(target_os = "linux")]
@@ -115,7 +115,7 @@ pub fn proxy(value: &str) -> Result<Option<reqwest::Url>, String> {
     let url = reqwest::Url::parse(value).map_err(|_| "代理地址格式无效。")?;
     if !["http", "https", "socks5", "socks5h"].contains(&url.scheme())
         || url.host_str().is_none()
-        || url.port().is_none()
+        || !specifies_port(value)
         || !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
@@ -125,6 +125,33 @@ pub fn proxy(value: &str) -> Result<Option<reqwest::Url>, String> {
         return Err("填写 http、https 或 socks5 代理主机与端口；带密码代理请交给本机 Clash，不在本软件保存凭据。".into());
     }
     Ok(Some(url))
+}
+/// `Url::port()` hides a scheme default, so `http://host:80` and `https://host:443` look portless.
+/// The field must contain an explicit port, including those defaults and a bracketed IPv6 host.
+fn specifies_port(value: &str) -> bool {
+    let Some((_, rest)) = value.split_once("://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let hostport = authority
+        .rsplit_once('@')
+        .map(|(_, host)| host)
+        .unwrap_or(authority);
+    let after_host = if let Some(rest) = hostport.strip_prefix('[') {
+        match rest.split_once(']') {
+            Some((_, after)) => after,
+            None => return false,
+        }
+    } else {
+        match hostport.rfind(':') {
+            Some(index) => &hostport[index..],
+            None => return false,
+        }
+    };
+    let Some(port) = after_host.strip_prefix(':') else {
+        return false;
+    };
+    !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit())
 }
 pub fn load(root: &Path) -> Result<Config, String> {
     match std::fs::read(root.join("config.json")) {
