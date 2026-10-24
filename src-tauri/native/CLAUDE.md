@@ -7,6 +7,7 @@ Keychain.m: 用户触发登录钥匙串解锁，不读取翻译 Key，不禁用�
 CleanupTests.m: 独立临时钥匙串复现外部应用所有者 -25244，并验证原生删除、同服务账号隔离与非 Claude 凭据保留，不触碰登录钥匙串。
 Cleanup.m: libproc 按外层 Claude 应用标识识别全部辅助进程；sysctl 仅识别 Node/Bun 首个官方 Claude CLI 脚本参数，不输出完整命令；已知凭据服务；只读属性核验后将单条持久引用解析为系统项目引用；文件钥匙串原生单项删除兼容共享密码，其他实现使用单项查询删除，保留系统错误代码和原因，不读取密码或保留撤回副本。
 System.m: Foundation 首选语言、地区格式和时区、CoreLocation 状态、系统授权及稳定标识/语义标签定位开关；定位关闭结果必须经系统读取确认。
-Browser.m: 真实机器状态与代理，NSLocale 读取包含 rg 覆盖的有效国家并保留原始区域标识；LaunchServices 注册独立浏览器、按包标识查询运行、读取 http/https 默认处理程序并以 LSSetDefaultHandlerForURLScheme/LSSetDefaultRoleHandlerForContentType 请求设为默认（系统弹窗确认）；进程身份核验（Chromium 或 CCBrowser 可执行名）。
+Browser.m: 真实机器状态与代理，NSLocale 读取包含 rg 覆盖的有效国家并保留原始区域标识；LaunchServices 注册独立浏览器、按包标识查询运行、读取 http/https 默认处理程序并以 LSSetDefaultHandlerForURLScheme/LSSetDefaultRoleHandlerForContentType 请求设为默认（系统弹窗确认）；资料进程身份核验：SingletonLock PID 同用户、包标识与 Chromium/CCBrowser 可执行名之外，还要求 KERN_PROCARGS2 中 "--" 前唯一一个绝对 --user-data-dir，并仅用目录元数据（设备/inode）确认与该资料是同一目录（尾斜杠、.、..、符号链接、大小写别名均识别），复核 UID/启动时间；只有两侧元数据都读回且不同才视为不属于，参数缺失/重复/缺值/相对、元数据或进程信息不可读、PID 复用均返回未知错误；仅观察到 ESRCH 才认定锁中进程已不存在；退出只作用于确认属于该资料的进程。
+BrowserProfileTests.m: 虚构 argv 覆盖等号/分隔、重复、"--"、缺值、相对路径与网址伪装；临时自建目录夹具覆盖不同目录与相似前缀、尾斜杠/./../符号链接/（卷不区分大小写时）大小写别名、元数据缺失与非目录；合成进程信息覆盖二次读取失败/PID 复用/UID 变化与 ESRCH 以外的错误；读取本测试进程 argv、已回收子进程编号及指向自身的临时 SingletonLock；不读真实浏览器资料，不启动、结束或枚举其他进程，不输出 argv。
 Clipboard.m: 主线程文本复制、辅助功能设置入口与共享响应释放；不捕获选区、不模拟键盘。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

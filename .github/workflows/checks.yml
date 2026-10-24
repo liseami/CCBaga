@@ -112,6 +112,9 @@ jobs:
           clang -fobjc-arc -framework Foundation -framework Security src-tauri/native/IdentityTests.m -o "$RUNNER_TEMP/ccbaga-identity-test"
           "$RUNNER_TEMP/ccbaga-identity-test"
           rm -f "$RUNNER_TEMP/ccbaga-identity-test"
+          clang -fobjc-arc -framework AppKit -framework CoreServices -framework CoreLocation -framework SystemConfiguration src-tauri/native/BrowserProfileTests.m -o "$RUNNER_TEMP/ccbaga-browser-profile-test"
+          CCBAGA_TEST_TMP="$RUNNER_TEMP" "$RUNNER_TEMP/ccbaga-browser-profile-test" "--user-data-dir=/nonexistent/ccbaga profile 资料"
+          rm -f "$RUNNER_TEMP/ccbaga-browser-profile-test"
       - name: Windows CLI and region regression
         if: runner.os == 'Windows'
         run: python scripts/test-windows.py

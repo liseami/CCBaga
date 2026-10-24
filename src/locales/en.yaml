@@ -593,6 +593,7 @@
 "浏览器应用注册失败（OSStatus {v0}）。": "Browser registration failed (OSStatus {v0})."
 "系统拒绝设置默认浏览器（http {v0} / https {v1}）。": "System refused default browser request (http {v0} / https {v1})."
 "浏览器未接受退出，请在浏览器窗口保存任务后退出。": "Browser did not quit. Save your work and quit from the browser window."
+"无法确认浏览器进程的资料归属，未操作资料。": "Could not confirm which profile the browser process owns. No profile data was changed."
 "无法打开对应系统设置页面。": "Cannot open this System Settings page."
 "请选择支持的系统语言。": "Select a supported system language."
 "语言偏好未能写入，请在系统设置中完成修改。": "Cannot save language preference. Apply it in System Settings."
