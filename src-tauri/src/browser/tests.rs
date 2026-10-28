@@ -1,5 +1,5 @@
 // [INPUT]: 临时样本、指纹参数、固定清理边界与本机 HTTP 限流样本。
-// [OUTPUT]: 缓存/旧站点清理保留资产，显式完整重置同时清除密码与密钥、全部子 Profile 并隔离兄弟资料；链接/进程重启阻断与真实删除计数；地区/网络回归。
+// [OUTPUT]: 缓存/旧站点清理保留资产，显式完整重置同时清除密码与密钥、全部子 Profile 并隔离兄弟资料；链接/进程重启阻断与真实删除计数；Chicago 地区解析与严格核验/网络回归。
 // [POS]: 浏览器模块行为验证；不访问用户实际资料。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -656,4 +656,68 @@ fn refreshed_context_recomputes_target_from_effective_machine_country() {
     taiwan.locale_country = "CN".into();
     context.update_machine(taiwan);
     assert!(context.region.is_none());
+}
+
+#[test]
+fn chicago_region_resolves_for_machine_and_manual_without_weakening_checks() {
+    let mut machine = machine();
+    machine.timezone = "America/Chicago".into();
+    let mut config = Config::default();
+    let mut report = network::Report {
+        language: "en-US".into(),
+        languages: machine.languages.clone(),
+        timezone: machine.timezone.clone(),
+        platform: "MacIntel".into(),
+        cores: machine.cores,
+        user_agent: "fixture".into(),
+        platform_version: machine.version.clone(),
+        browser_version: "148".into(),
+        geolocation: "denied".into(),
+        error: String::new(),
+        exit: Some(network::Exit {
+            ip: "203.0.113.1".into(),
+            country: "US".into(),
+            city: "Chicago".into(),
+            timezone: machine.timezone.clone(),
+            isp: "fixture".into(),
+        }),
+    };
+    for follow_machine in [true, false] {
+        config.follow_machine = follow_machine;
+        config.timezone = machine.timezone.clone();
+        assert_eq!(config.region(&machine).map(|r| r.id), Some("us-central"));
+        let checks = network::checks(&machine, &config, Some(&report), None, "148");
+        for index in [0, 2, 3] {
+            assert_eq!(checks[index].status, "ok", "{}", checks[index].title);
+        }
+        report.exit.as_mut().unwrap().country = "CA".into();
+        assert_eq!(
+            network::checks(&machine, &config, Some(&report), None, "148")[0].status,
+            "mismatch"
+        );
+        report.exit.as_mut().unwrap().country = "US".into();
+        report.exit.as_mut().unwrap().timezone = "America/New_York".into();
+        assert_eq!(
+            network::checks(&machine, &config, Some(&report), None, "148")[2].status,
+            "mismatch"
+        );
+        report.exit.as_mut().unwrap().timezone = machine.timezone.clone();
+        report.language = "en-CA".into();
+        assert_eq!(
+            network::checks(&machine, &config, Some(&report), None, "148")[3].status,
+            "mismatch"
+        );
+        report.language = "en-US".into();
+    }
+    machine.locale_country = "CA".into();
+    assert_eq!(
+        network::checks(&machine, &config, Some(&report), None, "148")[3].status,
+        "mismatch"
+    );
+    config.follow_machine = true;
+    assert!(config.region(&machine).is_none());
+    assert_eq!(
+        network::checks(&machine, &config, Some(&report), None, "148")[0].status,
+        "pending"
+    );
 }

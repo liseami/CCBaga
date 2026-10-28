@@ -48,7 +48,7 @@ CLI 管理：Claude 身份页提供一键卸载/重装，确认后结束全部�
 Linux x86_64 适配：见 docs/linux.md；平台配置拆分为 tauri.macos.conf.json / tauri.linux.conf.json。Linux 原生边界位于 src-tauri/src/linux.rs，浏览器使用带哈希固定的 LinuxBrowser 与 XDG 启动项；标准 Linux 包在 Ubuntu 22.04 构建并逐个检查实际 ELF 的 glibc 2.35 上限，Arch 保持独立当前发行版；版本任务后并行构建 macOS/Ubuntu/Arch；DEB/RPM/AppImage 引擎隔离在 libexec，避免宿主打包工具改写；Linux 实际安装包均解包核验，四格式与 macOS 同批验收后由所有者统一发布，Linux 不接触 Apple/更新私钥。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 
-首页国家地区目录固定为截图的 13 项，顺序不扩展。Windows 完整时区映射只服务实际系统读回与核验。
+首页国家地区目录为 14 项，包含美国芝加哥（us-central / America/Chicago）；其他未列出的城市/时区别名不自动匹配。Windows 完整时区映射只服务实际系统读回与核验。
 Windows x64：平台桥使用当前用户 SID、文件所有权、reparse-point 检查和 \\?\ verbatim 长路径转换；进程核验精确入口、创建时间和 live handle。凭据管理器不读取或自动删除。当前用户 International cmdlets 保留其他语言并核验实际生效；时区 tzutil 写入后读回，不用默认值伪装状态。默认浏览器只注册自身 HKCU 能力并引导系统确认，独立读取 HTTP/HTTPS。CLI 由内嵌 PowerShell 按原生/npm/bun/WinGet 来源管理，Job Object 限定子进程树；个人资产保留。单 NSIS 同时安装 A/B；Windows 自动更新使用同一安装器且先关闭 B。网络仍只用独立 Skill；Windows 私密文件采用用户 SID 独占 NTFS ACL，原生 OpenSSH/curl，无 WSL 或 VPS UI。main 的所有者手动安装样本预检不得签名或发布；正式发布需全部平台验收，Windows 更新私钥仅在测试后的独立签名步骤注入。
 
 浏览器身份联动：未设置用户默认开启，保留显式关闭；初始沿用既有资料，在显式切换或联动确认时建立绑定，原地备份不改变活动绑定，后续每个身份绑定独占 user-data-dir（内部 Default）与配置；本软件身份 ID 经 SHA-256 派生非零 32 位种子、登记冲突并持久复用，主动换指纹只修改当前资料。SQLite v3 在切换/恢复同事务提交选择指针；正常退出 B 后才切身份，失败回滚，恢复未完成时禁止启动；Mac 入口无参数时不再回退其他资料。空身份每次分配全新资料，现有资料默认保留，重新启用时可显式选择采用原资料。浏览器数据不进入身份归档、不在切换时复制，不自动注入网页登录令牌；不能保证网站与 CLI/桌面账号相同，不改变出口 IP，不承诺匿名或第三方无外连。删除暂存身份时可独立确认删除关联浏览器资料，使用中的资料拒绝删除。视觉验收后方可发布。

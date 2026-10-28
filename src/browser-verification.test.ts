@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 跨平台虚构宿主上下文和网页观测。
- * [OUTPUT]: 红/黄/绿状态、失败原因、断连/未知值与目标时区变化回归。
+ * [OUTPUT]: 红/黄/绿状态、失败原因、断连/未知值与目标时区变化与 Chicago 严格 12 项核验回归。
  * [POS]: 真实页面与纯核验模型的契约测试，不调用原生权限或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -52,4 +52,23 @@ test('手动预设继续检查所选脚本；跟随机器保留原有 en 到 en-
  expect(verifyBrowser(ctx,report,true,'',false).phase).toBe('passed');
  const manual={...context,config:{...context.config,language:'zh-Hant'},machine:{...context.machine,languages:['zh-Hans-TW']}};
  expect(verifyBrowser(manual,{...report,language:'zh-Hans-TW'},true,'',false).checks.find(row=>row.label==='网页语言')?.ok).toBe(false);
+});
+
+test('Chicago 已知地区的 12 项实测匹配通过，冲突和缺失地区仍失败',()=>{
+ const ctx:BrowserContext={...context,region:{id:'us-central',label:'美国 · 芝加哥',country:'US',language:'en-US',locale:'en_US',timezone:'America/Chicago'},config:{...context.config,follow_machine:true},machine:{...context.machine,timezone:'America/Chicago'}};
+ const observed:Report={...report,timezone:'America/Chicago',exit:{...report.exit!,city:'Chicago',timezone:'America/Chicago'}};
+ for(const follow_machine of [true,false]){
+  const configured={...ctx,config:{...ctx.config,follow_machine,timezone:'America/Chicago'}};
+  const result=verifyBrowser(configured,observed,true,'',false);
+  expect(result.phase).toBe('passed');
+  expect(result.checks).toHaveLength(12);
+  expect(result.checks.every(check=>check.ok===true)).toBe(true);
+  expect(verifyBrowser(configured,{...observed,exit:{...observed.exit!,country:'CA'}},true,'',false).failures.find(row=>row.label==='出口国家')?.ok).toBe(false);
+  expect(verifyBrowser(configured,{...observed,exit:{...observed.exit!,timezone:'America/New_York'}},true,'',false).failures.find(row=>row.label==='出口时区')?.ok).toBe(false);
+  expect(verifyBrowser(configured,{...observed,language:'en-CA'},true,'',false).failures.find(row=>row.label==='网页语言')?.ok).toBe(false);
+  expect(verifyBrowser({...configured,machine:{...ctx.machine,locale_country:'CA'}},observed,true,'',false).failures.find(row=>row.label==='本机区域')?.ok).toBe(false);
+ }
+ const missing=verifyBrowser({...ctx,region:null},observed,true,'',false);
+ expect(missing.phase).toBe('failed');
+ expect(missing.checks.filter(check=>check.ok===true)).toHaveLength(10);
 });

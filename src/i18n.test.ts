@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 中英文 YAML、共享翻译入口与 TypeScript 源码目录。
- * [OUTPUT]: 双语键/插槽一致性、全部界面源文案覆盖、原生结果/浏览器全清理部分失败计数翻译及切换后保留原始数据的回归。
+ * [OUTPUT]: 双语键/插槽一致性、原生地区标签及全部界面源文案覆盖、原生结果/浏览器全清理部分失败计数翻译及切换后保留原始数据的回归。
  * [POS]: 本地化的离线验证；不启动图形界面，不修改系统语言或用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,14 @@ test('双语目录完整且命名插槽一致',()=>{
     // 应用真实路径与名称保留，其他英文文案不得混入中文。
     expect(/[\u3400-\u9fff]/.test(en[key].replaceAll('CCBaga-B.app',''))).toBe(false);
   }
+});
+test('原生地区目录的标签都有双语翻译',()=>{
+  const catalog=readFileSync(new URL('../src-tauri/src/regions.rs',import.meta.url),'utf8');
+  for(const [,label] of catalog.matchAll(/label: "([^"]+)"/g)){
+    expect(zh[label]).toBe(label);
+    expect(en[label]?.length).toBeGreaterThan(0);
+  }
+  expect(en['美国 · 芝加哥']).toBe('United States · Chicago');
 });
 test('每个界面源文案与辅助名称都在 YAML 中',()=>{
   for(const name of readdirSync(new URL('.',import.meta.url)).filter(name=>name.endsWith('.tsx'))){

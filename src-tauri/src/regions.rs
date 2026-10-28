@@ -1,5 +1,5 @@
 // [INPUT]: 用户选定的国家地区编号。
-// [OUTPUT]: 地区预设、有效区域解析与目标地区匹配；机器语言/脚本不作为国家的替代。
+// [OUTPUT]: 含 Chicago 的显式地区预设、有效区域解析与目标地区匹配；机器语言/脚本不作为国家的替代。
 // [POS]: 快捷操作的唯一地区真相源；选择地区不代表实际网络出口已改变。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde::Serialize;
@@ -28,6 +28,14 @@ const REGIONS: &[Region] = &[
         language: "en-US",
         locale: "en_US",
         timezone: "America/New_York",
+    },
+    Region {
+        id: "us-central",
+        country: "US",
+        label: "美国 · 芝加哥",
+        language: "en-US",
+        locale: "en_US",
+        timezone: "America/Chicago",
     },
     Region {
         id: "ca",
@@ -183,9 +191,28 @@ mod tests {
         assert!(find("us; touch /tmp/injected").is_err());
     }
     #[test]
-    fn catalog_does_not_expand_or_equate_distinct_iana_zones() {
-        assert_eq!(REGIONS.len(), 13);
-        assert!(matching("en-US", "America/Chicago").is_none());
+    fn catalog_includes_chicago_without_equating_distinct_iana_zones() {
+        assert_eq!(REGIONS.len(), 14);
+        let chicago = find("us-central").unwrap();
+        assert_eq!(
+            (
+                chicago.country,
+                chicago.language,
+                chicago.locale,
+                chicago.timezone
+            ),
+            ("US", "en-US", "en_US", "America/Chicago")
+        );
+        assert_eq!(
+            matching("en-US", "America/Chicago").map(|r| r.id),
+            Some(chicago.id)
+        );
+        assert_eq!(
+            matching_country("US", "America/Chicago").map(|r| r.id),
+            Some(chicago.id)
+        );
+        assert!(matching_country("CA", "America/Chicago").is_none());
+        assert!(matching("en-CA", "America/Chicago").is_none());
         assert!(matching("en-US", "America/Phoenix").is_none());
         assert!(matching("en-US", "US/Pacific").is_none());
         assert!(matching("de", "Europe/Paris").is_none());
