@@ -1,5 +1,5 @@
 // [INPUT]: SQLite 目录、用户策略、白名单源、已验收归档代次、认证加密与平台凭据桥。
-// [OUTPUT]: 不改工作区/浏览器选择的原地备份、先暂存后切换、持久恢复记录、原位配置合并、显式删除与真实阶段进度；旧归档瞬态锁不恢复。
+// [OUTPUT]: 不改工作区/浏览器选择的原地备份、先暂存后切换、持久恢复记录、原位配置合并、显式删除与真实进度；旧归档瞬态锁不恢复，仅提交后回收本次已知旧代次。
 // [POS]: 身份的文件事务；SQLite 与文件系统由恢复日志协调，不能假装是同一原子事务。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{
@@ -106,7 +106,7 @@ impl Store {
         };
         if maintenance && store.db.get("recovery")?.is_none() {
             store.index_legacy()?;
-            store.collect_generations()?;
+            store.collect_generations(&[])?;
         }
         Ok(store)
     }
@@ -430,6 +430,7 @@ impl Store {
             return Err("请先恢复未完成的身份切换。".into());
         }
         self.stopped()?;
+        let candidates = self.db.records()?;
         let (mut record, stage) = self.save(name, policy, reporter)?;
         if record.empty {
             return Err("当前未检测到可暂存的登录凭据或身份数据。".into());
@@ -438,7 +439,7 @@ impl Store {
         reporter.log("commit", "running", "正在保存身份备份。", 0, Some(1));
         self.db
             .backup(&record, &super::profile::summarize_stage(&stage))?;
-        let _ = self.collect_generations();
+        let _ = self.collect_generations(&candidates);
         reporter.log("commit", "ok", "身份备份已保存。", 1, Some(1));
         reporter.log(
             "verify",
@@ -460,6 +461,7 @@ impl Store {
             return Err("请先恢复未完成的身份切换。".into());
         }
         reporter.log("validate", "running", "正在核对当前身份。", 0, None);
+        let mut candidates = self.db.records()?;
         let live_key = super::catalog::live_key(&self.home, &self.key)?;
         reporter.log("validate", "ok", "当前本地身份已核对。", 1, Some(1));
         if target != "empty" && live_key.is_some() && self.record(target)?.account_key == live_key {
@@ -467,7 +469,7 @@ impl Store {
             reporter.log("commit", "running", "正在保存当前身份选择。", 0, Some(1));
             self.db.complete(target)?;
             self.db.compact()?;
-            let _ = self.collect_generations();
+            let _ = self.collect_generations(&candidates);
             reporter.log("commit", "ok", "当前身份选择已保存。", 1, Some(1));
             reporter.log("verify", "ok", "当前身份已经是所选身份。", 1, Some(1));
             return Ok(());
@@ -495,6 +497,7 @@ impl Store {
         let (record, outgoing) = self.save(name, policy, reporter)?;
         let previous = self.db.get("active")?.unwrap_or_else(|| "current".into());
         self.db.pending(&record, target)?;
+        candidates.push(record.clone());
         let current = Self::selected(&outgoing, policy);
         let next = incoming
             .as_ref()
@@ -584,6 +587,7 @@ impl Store {
                     Some(1),
                 );
                 self.db.complete(&previous)?;
+                let _ = self.collect_generations(&candidates);
                 reporter.log("rollback", "ok", "原身份选择已保留。", 1, Some(1));
                 return Err(error);
             }
@@ -604,6 +608,7 @@ impl Store {
                     self.db.complete(&record.id)
                 })();
                 if rollback.is_ok() {
+                    let _ = self.collect_generations(&candidates);
                     reporter.log("rollback", "ok", "已恢复切换前的身份。", 1, Some(1));
                     return Err(format!("{error} 已恢复切换前的身份。"));
                 }
@@ -619,7 +624,7 @@ impl Store {
         }
         self.db.compact()?;
         // 目录已提交后才回收旧代次；回收失败保留加密文件，不把成功切换报为失败。
-        let _ = self.collect_generations();
+        let _ = self.collect_generations(&candidates);
         reporter.log(
             "verify",
             "ok",
@@ -631,6 +636,7 @@ impl Store {
     }
     pub fn recover(&mut self, name: &str, reporter: &Reporter) -> Result<(), String> {
         let id = self.db.get("recovery")?.ok_or("没有需要恢复的身份事务。")?;
+        let mut candidates = self.db.records()?;
         let record = self.record(&id)?;
         reporter.log(
             "verify_archive",
@@ -673,6 +679,7 @@ impl Store {
         // 恢复前再保存现状，避免崩溃后用户新产生的数据被恢复操作覆盖。
         let (checkpoint, current_stage) =
             self.save_checkpoint(name, &outgoing.manifest.policy, reporter)?;
+        candidates.push(checkpoint.clone());
         if !checkpoint.empty {
             self.db.remember(&checkpoint)?;
             let _ = self.db.set_summary(
@@ -731,7 +738,7 @@ impl Store {
                 .set_summary(&record.id, &super::profile::summarize_stage(&outgoing));
         }
         self.db.compact()?;
-        let _ = self.collect_generations();
+        let _ = self.collect_generations(&candidates);
         reporter.log("commit", "ok", "恢复后的身份选择已提交。", 1, Some(1));
         reporter.log("verify", "ok", "原身份已恢复。", 1, Some(1));
         Ok(())

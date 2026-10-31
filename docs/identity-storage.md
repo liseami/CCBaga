@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 原生保险库的保留策略、事务/进程/浏览器边界与显式密码迁移。
-[OUTPUT]: 身份保存、恢复与同系统跨设备迁移的真实能力和限制，以及 v0.2.49 根备份跨机验收失败的版本处理。
+[OUTPUT]: 身份保存、恢复、未索引完整归档保留与同系统迁移边界，以及 v0.2.49 根备份跨机验收失败的版本处理。
 [POS]: README 与使用指南的存储契约，不包含真实账号或凭据。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -27,6 +27,8 @@ Saving a recognized account updates its existing slot and preserves its custom n
 ## Safe replacement and recovery
 
 Each update writes a new immutable archive generation. The archive is synchronized and fully authenticated before SQLite commits its pointer together with the recovery marker. Old generations are collected only after a committed replacement; a rejected database update leaves the previous generation intact. The recovery checkpoint is independent and cannot overwrite the snapshot needed for rollback.
+
+Cleanup only considers generations known to the committed operation (including a completed rollback) and checks that the current catalog no longer references them. Opening a vault does not delete completed archives merely because their catalog entries are missing. Unindexed archives from an interrupted or rejected commit, or an inconsistent/restored catalog, remain available for recovery. This does not automatically reconstruct missing catalog entries; keep the vault and its `key.bin` together. A crash or unsuccessful cleanup can leave additional completed generations on disk.
 
 SQLite v1/v2 catalogs migrate transactionally to v3. Legacy snapshots are indexed after archive verification during explicit identity operations; ordinary refresh does not decrypt the archive list or backfill missing summaries. Duplicate recognized slots converge after a completed operation. Damaged and unidentified snapshots are not silently merged.
 

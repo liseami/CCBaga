@@ -1,8 +1,12 @@
 // [INPUT]: 有界 OAuth 账号元数据、本机密钥、已认证旧归档与 SQLite 目录。
-// [OUTPUT]: 稳定的本机 HMAC 账号索引、显式事务内旧账号索引迁移与已提交归档代次回收；缺摘要不主动解包。
+// [OUTPUT]: 稳定的本机 HMAC 账号索引、旧账号索引迁移与本次已提交事务的已知代次回收；未索引归档保留。
 // [POS]: 只按账号 UUID/组织（缺失时邮箱/组织）匹配；令牌刷新、名称变更不产生新身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
-use super::{database::Database, private, store::Store};
+use super::{
+    database::{Database, Record},
+    private,
+    store::Store,
+};
 use ring::hmac;
 use serde_json::Value;
 use std::{fs, io::Read, path::Path};
@@ -118,12 +122,22 @@ impl Store {
         }
         Ok(())
     }
-    pub(super) fn collect_generations(&self) -> Result<(), String> {
+    pub(super) fn collect_generations(&self, candidates: &[Record]) -> Result<(), String> {
         let records = self.db.records()?;
+        // Missing catalog entries do not prove an archive is obsolete: a failed
+        // commit or a restored/damaged catalog can leave the only recovery copy
+        // unindexed. Only a successful transaction can nominate its old records
+        // (and its own empty checkpoint) for collection.
+        let candidates: std::collections::HashSet<_> = candidates
+            .iter()
+            .map(|record| record.archive.as_str())
+            .collect();
         for entry in fs::read_dir(&self.vault).map_err(|_| "身份保险库无法读取。")? {
             let entry = entry.map_err(|_| "身份保险库无法读取。")?;
             let name = entry.file_name().to_string_lossy().into_owned();
-            if (archive_name(&name) && !records.iter().any(|r| r.archive == name))
+            if (archive_name(&name)
+                && candidates.contains(name.as_str())
+                && !records.iter().any(|r| r.archive == name))
                 || name.strip_prefix(".pending-").is_some_and(super::valid_id)
             {
                 private::safe(&entry.path())?;

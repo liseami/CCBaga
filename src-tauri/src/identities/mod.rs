@@ -1,6 +1,6 @@
 // [INPUT]: SQLite 身份目录与脱敏认证元数据、加密压缩保险库、精确进程查询、Cleaner 事务锁和 Tauri 进度通道。
 // [OUTPUT]: 只读当前/已保存摘要及有界进程预览、用户保留选项、浏览器联动确认与真实进度的停止/备份/切换/恢复/删除命令。
-// [POS]: GUI 身份管理的原生入口；刷新只读工作区、不回收暂存文件；不提供凭据读取、任意文件或网络接口。
+// [POS]: GUI 身份管理原生入口及隔离回归；刷新只读工作区、不回收暂存文件；不提供凭据读取、任意文件或网络接口。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 mod archive;
 #[cfg(test)]
@@ -18,6 +18,8 @@ mod optimization_tests;
 pub(crate) mod portable;
 pub(crate) mod private;
 mod profile;
+#[cfg(test)]
+mod recovery_tests;
 mod store;
 #[cfg(test)]
 mod tests;
