@@ -33,7 +33,7 @@ tar = "0.4.46"
 ring = "0.17.14"
 zeroize = "1.9.0"
 base64 = "0.23.1"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 dunce = "1"
