@@ -26,7 +26,7 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 tokio = { version = "1", features = ["sync"] }
 tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2"
-tauri-plugin-dialog = "=2.8.3"
+tauri-plugin-dialog = "=2.8.4"
 flate2 = "1.1.10"
 zstd = { version = "0.14.3", default-features = false }
 tar = "0.4.46"
