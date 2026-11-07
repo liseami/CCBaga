@@ -4,6 +4,23 @@
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
 #[test]
+fn retained_saved_profile_reports_its_relative_location_without_changing_data() {
+    let fixture = tests::sample();
+    let root = fixture.join("browser");
+    let slot = crate::identities::new_id().unwrap();
+    let cookie = root.join("contexts").join(&slot).join("profile/Default/Cookies");
+    fs::create_dir_all(cookie.parent().unwrap()).unwrap();
+    fs::write(&cookie, b"synthetic cookie").unwrap();
+
+    assert_eq!(
+        workspaces::retained_profile_path(&root, &slot).unwrap(),
+        Some(format!("browser/contexts/{slot}/profile"))
+    );
+    assert_eq!(fs::read(&cookie).unwrap(), b"synthetic cookie");
+    fs::remove_dir_all(fixture).unwrap();
+}
+
+#[test]
 fn linked_profiles_keep_separate_data_and_configs_without_compressing_or_copying() {
     let fixture = tests::sample();
     let root = fixture.join("browser");

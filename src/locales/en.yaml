@@ -1014,6 +1014,7 @@
 "将现有浏览器资料关联给当前身份": "Associate existing browser data with the current identity"
 "默认创建新资料，现有资料不会删除。资料隔离不会改变出口 IP。": "New browser data is created by default. Existing data is kept. Separate data does not change your exit IP."
 "同时永久删除关联浏览器资料": "Also permanently delete linked browser data"
+"身份已删除，关联浏览器资料仍保留在 CCBaga 应用数据目录下：{v0}": "Identity deleted. Linked browser data remains in the CCBaga app data folder at: {v0}"
 "浏览器资料选择无效。": "Invalid browser data selection."
 "无法分配独立浏览器种子。": "Could not allocate a separate browser seed."
 "浏览器保持关闭，请先恢复身份切换。": "Browser remains closed. Restore the interrupted identity switch first."
