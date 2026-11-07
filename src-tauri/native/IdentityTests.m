@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时钥匙串、虚构默认/自定义/无关服务和原生 Identity 桥。
- * [OUTPUT]: 快照范围、MCP 保留、精确删除/恢复、并发变更拒绝的真实 Security API 回归。
+ * [OUTPUT]: 快照范围、MCP 保留、精确删除/恢复、并发变更拒绝的真实 Security API 回归；Claude Code 条目恢复后仍可由 /usr/bin/security 直接读取。
  * [POS]: 替换默认钥匙串获取的离线验证；不改系统默认钥匙串，不使用真实账号。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,8 @@ static NSDictionary *json(char *value){NSData *bytes=[[NSString stringWithUTF8St
 static NSString *payload;
 static const char *input(id value){payload=[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:value options:0 error:nil] encoding:NSUTF8StringEncoding];return payload.UTF8String;}
 static void add(NSString *service,NSString *account,NSString *value){
+    // 与官方 CLI 一致：Claude Code 条目由 /usr/bin/security 创建。
+    if(tool(service)){NSCAssert(toolWrite(service,account,[value dataUsingEncoding:NSUTF8StringEncoding],location((__bridge id)fixture))==errSecSuccess,@"fixture tool create failed");return;}
     NSCAssert(SecItemAdd((__bridge CFDictionaryRef)@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:service,(__bridge id)kSecAttrAccount:account,(__bridge id)kSecUseKeychain:(__bridge id)fixture,(__bridge id)kSecValueData:[value dataUsingEncoding:NSUTF8StringEncoding]},NULL)==errSecSuccess,@"fixture create failed");
 }
 int main(void){@autoreleasepool{
@@ -38,6 +40,7 @@ int main(void){@autoreleasepool{
         NSCAssert([json(rf_identity_snapshot())[@"items"] count]==3,@"sibling was removed");
         NSCAssert([json(rf_identity_restore(input(@[first])))[@"ok"] boolValue],@"restore absent credential failed");
         NSCAssert([json(rf_identity_snapshot())[@"items"] count]==4,@"restore missing");
+        NSData *restored=nil;NSCAssert(toolRead(@"Claude Code-credentials",@"first",location((__bridge id)fixture),&restored)==errSecSuccess&&[restored isEqual:[[NSData alloc]initWithBase64EncodedString:first[@"data"] options:0]],@"restored Code credential unreadable by /usr/bin/security");
         NSCAssert([json(rf_identity_remove(input(saved)))[@"ok"] boolValue],@"default entries clear failed");
         NSCAssert([json(rf_identity_snapshot())[@"items"] count]==0,@"default entries remain");
         for(NSString *service in @[@"Claude Code-credentials-custom",@"unrelated-fixture"]){

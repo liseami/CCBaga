@@ -1,5 +1,5 @@
 // [INPUT]: SQLite 目录、用户策略、白名单源、已验收归档代次、认证加密与平台凭据桥。
-// [OUTPUT]: 不改工作区/浏览器选择的原地备份、先暂存后切换、持久恢复记录、原位配置合并、显式删除与真实阶段进度；旧归档瞬态锁不恢复。
+// [OUTPUT]: 不改工作区/浏览器选择的原地备份、先暂存后切换、持久恢复记录、原位配置合并、显式删除与真实阶段进度；旧归档瞬态锁不恢复；身份间切换原地覆盖同名钥匙串条目。
 // [POS]: 身份的文件事务；SQLite 与文件系统由恢复日志协调，不能假装是同一原子事务。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{
@@ -548,7 +548,15 @@ impl Store {
                 0,
                 None,
             );
-            self.keys(&outgoing.manifest.credentials, false, policy)?;
+            let replaced = incoming
+                .as_ref()
+                .map(|s| s.manifest.credentials.as_slice())
+                .unwrap_or_default();
+            self.keys(
+                &super::credentials::unreplaced(&outgoing.manifest.credentials, replaced),
+                false,
+                policy,
+            )?;
             reporter.log("credentials", "ok", "当前本地登录凭据已清除。", 1, Some(1));
             if let Some(stage) = incoming.as_ref() {
                 self.restore(stage, &next, policy, reporter, "restore")?;
