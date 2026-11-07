@@ -1,5 +1,5 @@
 // [INPUT]: 原生默认凭据快照、用户 MCP/插件保留策略与 base64/JSON。
-// [OUTPUT]: 仅身份字段变换的钥匙串写入协议；保留当前共享 MCP/插件秘密。
+// [OUTPUT]: 仅身份字段变换的钥匙串写入协议；保留当前共享 MCP/插件秘密；身份间切换只删除目标身份不会原地覆盖的条目，保留系统授权。
 // [POS]: 保险库和 macOS Security 桥之间的秘密边界，不进入 GUI 或日志。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::Policy;
@@ -35,6 +35,19 @@ pub fn clear(items: &[Value], policy: &Policy) -> Result<Vec<Value>, String> {
             }
             Ok(result)
         })
+        .collect()
+}
+// 目标身份会以同一服务/账户写回的条目不先删除：restore 原地更新正文，
+// 钥匙串条目及其访问控制（用户的“始终允许”）得以保留。
+pub fn unreplaced(outgoing: &[Value], incoming: &[Value]) -> Vec<Value> {
+    outgoing
+        .iter()
+        .filter(|item| {
+            !incoming
+                .iter()
+                .any(|next| next["service"] == item["service"] && next["account"] == item["account"])
+        })
+        .cloned()
         .collect()
 }
 pub fn restore(items: &[Value], live: &[Value], policy: &Policy) -> Result<Vec<Value>, String> {
@@ -90,5 +103,22 @@ mod tests {
         assert_eq!(value["claudeAiOauth"]["accessToken"], "target");
         assert_eq!(value["mcpOAuth"], "latest");
         assert_eq!(value["pluginSecrets"], "keep-plugin");
+    }
+    #[test]
+    fn switching_identities_keeps_items_the_target_overwrites() {
+        let row = |service: &str, account: &str| serde_json::json!({"service":service,"account":account,"data":""});
+        let outgoing = [
+            row("Claude Code-credentials", "luke"),
+            row("Claude Safe Storage", "Claude"),
+            row("Claude Code", "other"),
+        ];
+        let incoming = [
+            row("Claude Code-credentials", "luke"),
+            row("Claude Safe Storage", "Claude"),
+            row("Claude Code", "fixture"),
+        ];
+        let removed = unreplaced(&outgoing, &incoming);
+        assert_eq!(removed, vec![row("Claude Code", "other")]);
+        assert_eq!(unreplaced(&outgoing, &[]), outgoing.to_vec());
     }
 }
