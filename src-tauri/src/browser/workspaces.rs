@@ -1,5 +1,5 @@
 // [INPUT]: 身份 SQLite 绑定、独立浏览器根目录、受限配置和用户确认后的切换事务。
-// [OUTPUT]: 独占资料选择、安全退出/重开与恢复阻断；迁移只读绑定配置或创建全新配置/seed.owner，不改变选择、不复制浏览器会话。
+// [OUTPUT]: 独占资料选择、安全退出/重开与恢复阻断；身份删除时返回保留的浏览器资料位置；迁移只读绑定配置或创建全新配置/seed.owner，不改变选择、不复制浏览器会话。
 // [POS]: 身份与浏览器的协调边界；资料不压缩、不复制、不合并 Cookie，失败状态如实返回。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -182,7 +182,7 @@ pub(crate) fn delete_saved(
     id: &str,
     remove_profile: bool,
     action: impl FnOnce() -> Result<(), String>,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let browser = app.state::<Browser>();
     let _guard = browser.gate.lock().unwrap();
     let root = root(app)?;
@@ -199,6 +199,13 @@ pub(crate) fn delete_saved(
             }
         }
     }
+    let retained_profile = if remove_profile {
+        None
+    } else if let Some(slot) = slot.as_deref() {
+        retained_profile_path(&root, slot)?
+    } else {
+        None
+    };
     action()?;
     if remove_profile {
         if let Some(slot) = slot {
@@ -216,7 +223,20 @@ pub(crate) fn delete_saved(
             }
         }
     }
-    Ok(())
+    Ok(retained_profile)
+}
+
+pub(super) fn retained_profile_path(root: &Path, slot: &str) -> Result<Option<String>, String> {
+    let profile = slot_path(root, slot)?.join("profile");
+    profile::check_path(root, &profile)?;
+    if !profile.is_dir() {
+        return Ok(None);
+    }
+    Ok(Some(if slot == "legacy" {
+        "browser/profile".into()
+    } else {
+        format!("browser/contexts/{slot}/profile")
+    }))
 }
 pub(super) fn transition(
     app: &tauri::AppHandle,

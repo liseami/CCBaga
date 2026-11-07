@@ -1,5 +1,5 @@
 // [INPUT]: SQLite 身份目录与脱敏认证元数据、加密压缩保险库、精确进程查询、Cleaner 事务锁和 Tauri 进度通道。
-// [OUTPUT]: 只读当前/已保存摘要及有界进程预览、用户保留选项、浏览器联动确认与真实进度的停止/备份/切换/恢复/删除命令。
+// [OUTPUT]: 只读当前/已保存摘要及有界进程预览、用户保留选项、浏览器联动确认与真实进度的停止/备份/切换/恢复/删除命令；删除后返回保留浏览器资料的相对路径。
 // [POS]: GUI 身份管理的原生入口；刷新只读工作区、不回收暂存文件；不提供凭据读取、任意文件或网络接口。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 mod archive;
@@ -76,6 +76,7 @@ impl Policy {
 pub struct State {
     pub browser: browser_link::BrowserLink,
     pub browser_warning: Option<String>,
+    pub browser_retained_path: Option<String>,
     pub records: Vec<database::Record>,
     pub summaries: std::collections::BTreeMap<String, profile::Summary>,
     pub processes: Option<Vec<profile::ProcessPreview>>,
@@ -131,6 +132,7 @@ fn state(app: &tauri::AppHandle) -> Result<State, String> {
             .lock()
             .unwrap()
             .clone(),
+        browser_retained_path: None,
         records,
         summaries,
         processes,
@@ -295,12 +297,16 @@ pub async fn identities_delete(
             store.delete(&id, &policy, &reporter)?;
             Ok(())
         };
-        let result = if id == "current" {
-            crate::browser::identity_action(&worker, &reporter, action)
+        let retained_path = if id == "current" {
+            crate::browser::identity_action(&worker, &reporter, action).map(|_| None)
         } else {
             crate::browser::delete_saved(&worker, &id, delete_browser.unwrap_or(false), action)
-        }
-        .and_then(|_| state(&worker));
+        };
+        let result = retained_path.and_then(|path| {
+            let mut next = state(&worker)?;
+            next.browser_retained_path = path;
+            Ok(next)
+        });
         if let Err(e) = &result {
             reporter.fail(e);
         }

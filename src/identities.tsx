@@ -145,7 +145,7 @@ export function IdentityPanel({onBusy, initialEmpty=false}: {onBusy?: (busy:bool
    const next=await invoke<IdentityState>('identities_delete',{id:target==='current'?'current':target.id,policy,deleteBrowser:target!=='current'&&deleteBrowser,onProgress});
    setState(next);
    setResidueRevision(value=>value+1);
-   activity.finish(true,next.browser_warning||'所选本地身份已直接删除。');
+   activity.finish(true,next.browser_retained_path?t('身份已删除，关联浏览器资料仍保留在 CCBaga 应用数据目录下：{v0}',{v0:next.browser_retained_path}):next.browser_warning||'所选本地身份已直接删除。');
   } catch(e) {setError(String(e));activity.finish(false,String(e));await refreshAfterError();}
   finally {setBusy(false);}
  }
