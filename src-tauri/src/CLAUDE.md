@@ -2,7 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 清理在本机执行；网络页只提供固定资源入口，SSH 由应用外 Skill 执行。生产命令提供身份压缩暂存、空身份切换、恢复、独立确认的直接删除及当前默认 Claude 文件残留维护。用户选择保留或随身份暂存，文件残留另经扫描和选择清理，系统设置独立。
 identities/ - SQLite 身份目录与脱敏摘要、用户保留策略、原地加密备份、加密压缩暂存、空身份切换、恢复与选择性直接删除；见其 CLAUDE.md。
-cleaner_identity.rs: 根目录 .claude.json.backup[.*] 的恢复许可独立于当前磁盘发现；身份目标/保留策略与窄 JSON 操作、真实 Claude 进程结果和瞬态锁分类；锁仅从快照/旧归档恢复中排除，不借结束进程或备份自动删除文件；非空同名目录仍作为用户数据，复用完整快照和所有权边界，不扫描源码，共享代理遵循个人设置保留选择。
+cleaner_identity.rs: 根目录 .claude.json.backup[.*] 的恢复许可独立于当前磁盘发现；身份目标/保留策略与窄 JSON 操作、Linux Desktop OAuth/Cookie、真实 Claude 进程结果和瞬态锁分类；锁仅从快照/旧归档恢复中排除，不借结束进程或备份自动删除文件；非空同名目录仍作为用户数据，复用完整快照和所有权边界，不扫描源码，共享代理遵循个人设置保留选择。
 updater_tests.rs: 官方更新器本机 HTTP 公开向量验证篡改与版本冒用；发布显式传入实际清单/归档，下载核验而不安装。
 main.rs: 官方更新/重启/原生文件选择插件与 Tauri 生命周期、双语托盘和文件残留扫描/选择清理、身份/密码迁移一次性文件票据/CLI/浏览器/固定网络入口命令注册；启动时带起 CCBaga-B，退出删除 start.url；发布缺少 custom-protocol 时编译失败，防止安装包依赖开发服务；Windows 正式宿主使用 GUI 子系统，CI 仅记录固定启动阶段定位实际运行阻塞，不记录参数或用户资料。
 ui_language.rs: 受 zh/en 白名单限制的界面偏好，原子持久化后发布内存状态；共用托盘菜单，独立于电脑与浏览器语言。
@@ -26,6 +26,7 @@ cleaner_config.rs: 账号缓存和代理认证配置的窄范围变换；Code �
 cleaner_io.rs: 清理后配置原子写入；Windows 写入前保留原所有者/DACL，临时文件仅保存新内容，失败移除，不保留原配置。
 cleaner_tests.rs: 临时白名单/快照/日志验证，覆盖超过 30,000 文件的完整清理与权限失败保护；官方原生版本路径、自编译并经启动握手的可丢弃进程与 Node 样本验证身份、终止与其他 Node 保留；Windows 子进程隔离的外置 AppData 验证白名单和身份目标，不复制系统平台二进制，不修改用户数据。
 regions.rs: 地区编号到语言、区域格式和代表时区的唯一白名单、ICU/BCP 47 有效区域解析与独立国家/时区匹配；供前端选择与系统/浏览器快捷操作共用，包含目录与本机时区验证。
-linux.rs: 浏览器独立扫描与目录 inode/启动时间复核，候选读取失败阻断，Claude 枚举保持原规则；浏览器快照保留原始 LC_TIME（含代码集后 @rg），系统预检仅去代码集并保留 modifier，防有效地区误报，无效覆盖不回退基础国家；Linux procfs 当前用户进程、zoneinfo/timedatectl、GNOME 定位偏好、GNOME/KDE 设置入口与 Wayland/X11 剪贴板；LC_MESSAGES/LC_TIME 分别读取会话语言/区域格式，不匹配时先报手动操作再改时区；未知定位为 null，Linux 钥匙串明确不可用；不将系统代理凭据序列化给 WebView。
+linux.rs: 浏览器独立扫描与目录 inode/启动时间复核，候选读取失败阻断，Claude/Claude Desktop 枚举保持当前用户与精确入口边界；浏览器快照保留原始 LC_TIME（含代码集后 @rg），系统预检仅去代码集并保留 modifier，防有效地区误报，无效覆盖不回退基础国家；Linux procfs 当前用户进程、zoneinfo/timedatectl、GNOME 定位偏好、GNOME/KDE 设置入口与 Wayland/X11 剪贴板；LC_MESSAGES/LC_TIME 分别读取会话语言/区域格式，不匹配时先报手动操作再改时区；未知定位为 null，Linux 钥匙串明确不可用；不将系统代理凭据序列化给 WebView。
+linux_desktop.rs: 身份事务专用的 OAuth JSON 白名单和登录 Cookie 行；SQLite backup 包含已提交 WAL，检查 sidecar/所有权并拒绝不兼容架构，清除/恢复保留非登录 Cookie、配置、历史和工作区。
 network_links.rs: 固定四域名并发只读 HTTP 探针；下载元数据仅接受 HTTP200、流式最多64字节的三段数字版本，空/畸形/超限/截断均失败且正文不进UI；其他域名维持连通性/浏览器质询语义；重定向只认可无认证的官方HTTPS:443目标，始终不跟随。默认不继承代理认证、不跟随重定向、八秒超时；固定供应商与 Skill 导航白名单，编译消费 providers.json 组装原始 URL，WebView 不能指定 URL；无密钥访问或 SSH 执行。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

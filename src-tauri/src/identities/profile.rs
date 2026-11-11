@@ -1,5 +1,5 @@
 // [INPUT]: 默认 .claude.json 的 oauthAccount 显示字段、本地凭据的订阅/过期元数据、已认证暂存归档和精确进程查询结果。
-// [OUTPUT]: 当前身份与已保存摘要的显示白名单、按读取时间计算的本地凭据状态，以及至多 32 个进程预览；查询失败明确未知。
+// [OUTPUT]: 当前身份与已保存摘要的显示白名单、按读取时间计算的本地凭据状态，以及至多 32 个进程预览；查询失败明确未知，Desktop 读取失败保守标记 present/unavailable。
 // [POS]: 身份卡片的只读展示边界；不读取钥匙串、Cookie 正文或任意项目文件。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde::{Deserialize, Serialize};
@@ -279,7 +279,13 @@ pub fn read(home: &Path) -> Current {
         current.auth_status = Some(auth.status_at(now_ms()).into());
         current.expires_at = auth.expiry();
     }
-    current.present |= crate::cleaner::identity::desktop_present(home);
+    match crate::cleaner::identity::desktop_present(home) {
+        Ok(present) => current.present |= present,
+        Err(_) => {
+            current.present = true;
+            current.unavailable = true;
+        }
+    }
     current
 }
 pub(super) fn summarize_stage(stage: &super::archive::Stage) -> SavedSummary {
@@ -349,7 +355,9 @@ pub(super) fn summarize_stage(stage: &super::archive::Stage) -> SavedSummary {
 pub fn process_previews(
     result: Result<Vec<crate::cleaner::ClaudeProcess>, String>,
 ) -> (Option<Vec<ProcessPreview>>, bool) {
-    let Ok(running) = result else { return (None, false); };
+    let Ok(running) = result else {
+        return (None, false);
+    };
     let truncated = running.len() > 32;
     let out = running
         .into_iter()

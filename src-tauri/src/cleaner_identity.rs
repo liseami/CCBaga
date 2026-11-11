@@ -1,5 +1,5 @@
 // [INPUT]: Cleaner 白名单、共享 Code 登录键常量、完整目录快照、用户保留策略与 JSON 配置。
-// [OUTPUT]: 受限身份目标、独立于当前磁盘发现的根目录备份许可、窄配置提取/清空/恢复、保留策略与桌面身份元数据检测、进程结果和瞬态锁分类；不自动删除锁。
+// [OUTPUT]: 受限身份源、Linux Desktop OAuth/登录 Cookie、WAL 指纹和窄配置合并；保留非登录资料。
 // [POS]: 身份保险库复用原有路径边界；不扫描项目源码、Shell 或系统代理配置。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -61,6 +61,8 @@ fn definitions(root: &Path, policy: &Policy) -> Vec<Source> {
             },
         })
         .collect();
+    #[cfg(target_os = "linux")]
+    result.extend(super::desktop::sources(root));
     if let Some(source) = result
         .iter_mut()
         .find(|s| s.path == root.join(".claude.json"))
@@ -152,6 +154,35 @@ pub(crate) fn sources(root: &Path, policy: &Policy) -> Result<Vec<Source>, Strin
         }
         crate::identities::private::safe(&source.path)?;
         targets::measure(&source.path)?;
+        #[cfg(target_os = "linux")]
+        {
+            if source.category == super::desktop::COOKIE_CATEGORY
+                && !super::desktop::has_login(&source.path)?
+            {
+                continue;
+            }
+            if source.category == "desktop"
+                && source
+                    .path
+                    .file_name()
+                    .is_some_and(|name| name == "config.json")
+            {
+                let value: serde_json::Value = serde_json::from_slice(
+                    &fs::read(&source.path).map_err(|_| "身份配置无法读取。")?,
+                )
+                .map_err(|_| "身份配置不是有效 JSON。")?;
+                source.keys = value
+                    .as_object()
+                    .ok_or("身份配置不是对象。")?
+                    .keys()
+                    .filter(|key| super::desktop::config_key(key))
+                    .cloned()
+                    .collect();
+                if source.keys.is_empty() {
+                    continue;
+                }
+            }
+        }
         if source.path == root.join(".claude.json") && !policy.settings {
             let value: serde_json::Value =
                 serde_json::from_slice(&fs::read(&source.path).map_err(|_| "身份配置无法读取。")?)
@@ -190,6 +221,21 @@ pub(crate) fn sources(root: &Path, policy: &Policy) -> Result<Vec<Source>, Strin
 pub(crate) fn allowed(root: &Path, source: &Source) -> bool {
     let all = definitions(root, &Policy::all());
     let known = all.iter().any(|t| {
+        #[cfg(target_os = "linux")]
+        if source.category == "desktop"
+            && source
+                .path
+                .file_name()
+                .is_some_and(|name| name == "config.json")
+        {
+            return t.path == source.path
+                && t.category == source.category
+                && !source.keys.is_empty()
+                && source
+                    .keys
+                    .iter()
+                    .all(|key| super::desktop::config_key(key));
+        }
         t.path == source.path
             && t.category == source.category
             && ((source.path == root.join(".claude.json")
@@ -239,6 +285,13 @@ pub(crate) fn allowed(root: &Path, source: &Source) -> bool {
 }
 pub(crate) fn fingerprint(path: &Path) -> Result<Vec<u8>, String> {
     Ok(targets::measure(path)?.2)
+}
+pub(crate) fn source_fingerprint(source: &Source) -> Result<Vec<u8>, String> {
+    #[cfg(target_os = "linux")]
+    if source.category == super::desktop::COOKIE_CATEGORY {
+        return super::desktop::fingerprint(&source.path);
+    }
+    fingerprint(&source.path)
 }
 fn pointer(key: &str) -> String {
     format!("/{}", key.replace('.', "/"))
@@ -327,13 +380,18 @@ pub(crate) fn account_key(key: &str) -> bool {
     config::ACCOUNT_KEYS.contains(&key)
 }
 
-// ----- 只检查桌面身份路径元数据，不读取 Cookie 或数据库正文 -----
-pub(crate) fn desktop_present(root: &Path) -> bool {
-    definitions(root, &Policy::default())
+// ----- 仅返回桌面登录数据是否存在，不向 UI 返回凭据正文 -----
+pub(crate) fn desktop_present(root: &Path) -> Result<bool, String> {
+    #[cfg(target_os = "linux")]
+    {
+        return super::desktop::present(root);
+    }
+    #[cfg(not(target_os = "linux"))]
+    Ok(definitions(root, &Policy::default())
         .into_iter()
-        .filter(|s| s.category == "desktop")
+        .filter(|s| s.category == "desktop" || s.category == "desktop-cookies")
         .any(|s| {
             crate::identities::private::parents(s.path.parent().unwrap()).is_ok()
                 && crate::identities::private::safe(&s.path).is_ok()
-        })
+        }))
 }

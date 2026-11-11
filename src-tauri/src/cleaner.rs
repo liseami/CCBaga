@@ -1,5 +1,5 @@
 // [INPUT]: Claude 白名单、所选文件夹发现、配置变换、原子写入、官方原生 CLI 版本路径及 macOS/Linux/Windows 白名单路径边界。
-// [OUTPUT]: 全机/文件夹元数据扫描、文件残留专用快照与选择清理、实时 Claude 进程检查与停止；CLI、身份和残留操作共用互斥锁。
+// [OUTPUT]: 精确识别当前用户的 CLI/已支持 Linux Desktop 进程；文件扫描与停止共用事务锁。
 // [POS]: 白名单与进程共用边界；身份由 identities 编排，残留入口仅允许文件操作且不访问钥匙串。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use crate::native;
@@ -24,6 +24,9 @@ use std::{
 use tauri::{ipc::Channel, Manager};
 #[path = "cleaner_config.rs"]
 mod config;
+#[cfg(target_os = "linux")]
+#[path = "linux_desktop.rs"]
+pub(crate) mod desktop;
 #[path = "cleaner_io.rs"]
 mod file_io;
 #[path = "cleaner_folder.rs"]
@@ -433,6 +436,8 @@ fn process_row(line: &str, desktop: &[i32], uid: u32) -> Option<ClaudeProcess> {
     }
     let executable = fields.next()?.trim().to_owned();
     let name = Path::new(&executable).file_name()?.to_str()?;
+    #[cfg(target_os = "linux")]
+    let name = name.strip_suffix(" (deleted)").unwrap_or(name);
     let desktop_app = desktop.contains(&pid);
     let native_cli = name.split('.').count() == 3
         && name
@@ -460,7 +465,7 @@ fn process_row(line: &str, desktop: &[i32], uid: u32) -> Option<ClaudeProcess> {
         } else if desktop_app {
             if matches!(name, "node" | "nodejs" | "bun") {
                 "Claude Code".into()
-            } else if name == "Claude" {
+            } else if matches!(name, "Claude" | "claude-desktop") {
                 "Claude Desktop".into()
             } else {
                 name.into()
@@ -491,7 +496,7 @@ fn processes() -> Result<Vec<ClaudeProcess>, String> {
     Ok(crate::linux::processes()?
         .into_iter()
         .filter_map(|p| {
-            let desktop = if crate::linux::node_cli(&p) {
+            let desktop = if crate::linux::node_cli(&p) || crate::linux::desktop_process(&p) {
                 vec![p.pid]
             } else {
                 vec![]

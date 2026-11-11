@@ -1,5 +1,5 @@
 // [INPUT]: 当前用户目录、Windows 实际 AppData、Claude 清理白名单与可选组织编号。
-// [OUTPUT]: 分类清理目标、五个固定锁的瞬态判定与非空/未知路径保留警告、完整目录元数据统计和受限旧组织文件匹配。
+// [OUTPUT]: 分类清理白名单、可复用 XDG 定位、固定锁判定和完整目录元数据统计；Linux 身份目标另行限定。
 // [POS]: 清理发现边界；不跟随链接，不遍历项目仓库，不读取凭据内容。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -503,7 +503,7 @@ pub(super) fn definitions_with_warnings(root: &Path) -> (Vec<Target>, Vec<String
 }
 
 #[cfg(target_os = "linux")]
-fn xdg_dir(root: &Path, variable: &str, fallback: &str) -> PathBuf {
+pub(super) fn xdg_dir(root: &Path, variable: &str, fallback: &str) -> PathBuf {
     // Fixture scans must not escape into the real user's XDG directories.
     if super::home().ok().as_deref() == Some(root) {
         if let Some(path) = std::env::var_os(variable)
