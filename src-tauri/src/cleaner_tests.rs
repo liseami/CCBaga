@@ -675,4 +675,7 @@ fn linux_desktop_process_preview_preserves_current_user_boundary() {
     );
     assert!(process_row(&format!("502 42 {executable}"), &[42], 501).is_none());
     assert!(process_row(&format!("501 42 {executable}"), &[], 501).is_none());
+    let deleted = process_row(&format!("501 42 {executable} (deleted)"), &[42], 501).unwrap();
+    assert_eq!(deleted.name,"Claude Desktop");
+    assert_eq!(deleted.executable,format!("{executable} (deleted)"));
 }

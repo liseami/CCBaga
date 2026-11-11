@@ -7,6 +7,7 @@ use crate::identities::{new_id, private};
 use rusqlite::{params_from_iter, types::Value, Connection, OpenFlags};
 use std::{
     fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -118,32 +119,45 @@ pub(crate) fn has_login(path: &Path) -> Result<bool, String> {
         )
         .map_err(problem)
 }
-pub(crate) fn present(root: &Path) -> bool {
-    sources(root).into_iter().any(|source| {
-        if private::parents(source.path.parent().unwrap()).is_err()
-            || private::safe(&source.path).is_err()
-        {
-            return false;
+pub(crate) fn present(root: &Path) -> Result<bool, String> {
+    for source in sources(root) {
+        match fs::symlink_metadata(&source.path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(problem(e)),
+            Ok(_) => {}
         }
+        private::parents(source.path.parent().unwrap())?;
+        private::safe(&source.path)?;
         if source.category == COOKIE_CATEGORY {
             // Only the presence of known cookie names is queried, never credential values.
-            return has_login(&source.path).unwrap_or(false);
+            if has_login(&source.path)? {
+                return Ok(true);
+            }
+            continue;
         }
         if !fs::metadata(&source.path).is_ok_and(|m| m.is_file() && m.len() <= 8 * 1024 * 1024) {
-            return false;
+            return Err(problem("configuration size"));
         }
-        fs::read(&source.path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-            .and_then(|value| {
-                value.as_object().map(|object| {
-                    object.iter().any(|(key, value)| {
-                        config_key(key) && !value.is_null() && value.as_str() != Some("")
-                    })
-                })
-            })
-            .unwrap_or(false)
-    })
+        let mut bytes = zeroize::Zeroizing::new(Vec::new());
+        fs::File::open(&source.path)
+            .map_err(problem)?
+            .take(8 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(problem)?;
+        if bytes.len() > 8 * 1024 * 1024 {
+            return Err(problem("configuration size"));
+        }
+        let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(problem)?;
+        if value
+            .as_object()
+            .ok_or_else(|| problem("configuration"))?
+            .iter()
+            .any(|(key, value)| config_key(key) && !value.is_null() && value.as_str() != Some(""))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 pub(crate) struct Snapshot {
     folder: PathBuf,
@@ -163,22 +177,63 @@ pub(crate) fn snapshot(path: &Path, vault: &Path) -> Result<Snapshot, String> {
     };
     drop(private::create(&snapshot.path)?);
     // SQLite backup includes committed WAL pages; copying the main file alone does not.
-    connection(path, false)?
+    let source = connection(path, false)?;
+    schema(&source)?;
+    source
         .backup(rusqlite::MAIN_DB, &snapshot.path, None)
         .map_err(problem)?;
     let db = connection(&snapshot.path, true)?;
-    db.execute_batch(&format!("PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON; DELETE FROM cookies WHERE NOT ({AUTH});")).map_err(problem)?;
+    // VACUUM also removes previously freed pages, which may contain unrelated cookies.
+    db.execute_batch(&format!("PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON; DELETE FROM cookies WHERE NOT ({AUTH}); VACUUM;")).map_err(problem)?;
     drop(db);
     Ok(snapshot)
 }
 pub(crate) fn clear(path: &Path) -> Result<(), String> {
-    connection(path, true)?
-        .execute(&format!("DELETE FROM cookies WHERE {AUTH}"), [])
+    let db = connection(path, true)?;
+    schema(&db)?;
+    db.execute(&format!("DELETE FROM cookies WHERE {AUTH}"), [])
         .map_err(problem)?;
     Ok(())
 }
+#[derive(PartialEq)]
+struct CookieSchema {
+    objects: Vec<(String, String, Option<String>)>,
+    versions: Vec<(String, Value)>,
+}
+fn schema(db: &Connection) -> Result<CookieSchema, String> {
+    let objects = db.prepare("SELECT type,name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_stat%' ORDER BY type,name").map_err(problem)?
+        .query_map([],|row|Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,Option<String>>(2)?))).map_err(problem)?
+        .collect::<rusqlite::Result<Vec<_>>>().map_err(problem)?;
+    if !objects.iter().all(|(kind, name, sql)| match kind.as_str() {
+        "table" => {
+            matches!(name.as_str(), "cookies" | "meta")
+                && sql.as_ref().is_some_and(|sql| {
+                    sql.trim_start()
+                        .to_ascii_uppercase()
+                        .starts_with("CREATE TABLE ")
+                })
+        }
+        "index" => {
+            name.starts_with("sqlite_autoindex_")
+                || sql
+                    .as_ref()
+                    .is_some_and(|sql| sql.trim_start().to_ascii_uppercase().starts_with("CREATE "))
+        }
+        _ => false,
+    }) {
+        return Err(problem("unsupported cookie schema"));
+    }
+    let versions = db.prepare("SELECT key,value FROM meta WHERE key IN ('version','last_compatible_version') ORDER BY key").map_err(problem)?
+        .query_map([],|row|Ok((row.get::<_,String>(0)?,row.get::<_,Value>(1)?))).map_err(problem)?
+        .collect::<rusqlite::Result<Vec<_>>>().map_err(problem)?;
+    if !versions.iter().any(|(key, _)| key == "version") {
+        return Err(problem("cookie version"));
+    }
+    Ok(CookieSchema { objects, versions })
+}
 pub(crate) fn restore(path: &Path, saved: &Path) -> Result<(), String> {
     let source = connection(saved, false)?;
+    let saved_schema = schema(&source)?;
     let mut query = source
         .prepare(&format!("SELECT * FROM cookies WHERE {AUTH}"))
         .map_err(problem)?;
@@ -188,6 +243,13 @@ pub(crate) fn restore(path: &Path, saved: &Path) -> Result<(), String> {
         .map(|s| s.to_string())
         .collect::<Vec<_>>();
     if !path.exists() {
+        private::parents(path.parent().ok_or_else(|| problem("parent"))?)?;
+        for suffix in ["-wal", "-shm", "-journal"] {
+            match fs::symlink_metadata(sidecar(path, suffix)) {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => return Err(problem("orphaned cookie sidecar")),
+            }
+        }
         // A new profile has no unrelated cookies to preserve; retain the saved Chromium schema.
         let unrelated: bool = source
             .query_row(
@@ -204,6 +266,9 @@ pub(crate) fn restore(path: &Path, saved: &Path) -> Result<(), String> {
         return Ok(());
     }
     let mut destination = connection(path, true)?;
+    if schema(&destination)? != saved_schema {
+        return Err(problem("incompatible schema"));
+    }
     let target_columns = destination
         .prepare("SELECT * FROM cookies LIMIT 0")
         .map_err(problem)?

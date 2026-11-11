@@ -436,6 +436,8 @@ fn process_row(line: &str, desktop: &[i32], uid: u32) -> Option<ClaudeProcess> {
     }
     let executable = fields.next()?.trim().to_owned();
     let name = Path::new(&executable).file_name()?.to_str()?;
+    #[cfg(target_os = "linux")]
+    let name = name.strip_suffix(" (deleted)").unwrap_or(name);
     let desktop_app = desktop.contains(&pid);
     let native_cli = name.split('.').count() == 3
         && name

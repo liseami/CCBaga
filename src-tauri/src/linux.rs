@@ -202,7 +202,7 @@ pub fn node_cli(process: &Process) -> bool {
 }
 pub fn desktop_process(process: &Process) -> bool {
     matches!(
-        process.executable.to_str(),
+        process.executable.to_str().map(|path|path.strip_suffix(" (deleted)").unwrap_or(path)),
         Some(
             "/usr/lib/claude-desktop/claude-desktop"
                 | "/usr/lib/claude-desktop/chrome_crashpad_handler"
@@ -576,6 +576,7 @@ mod tests {
     fn desktop_processes_require_exact_installed_executables() {
         for (path, expected) in [
             ("/usr/lib/claude-desktop/claude-desktop", true),
+            ("/usr/lib/claude-desktop/claude-desktop (deleted)", true),
             ("/usr/lib/claude-desktop/chrome_crashpad_handler", true),
             (
                 "/usr/lib/claude-desktop/resources/cowork-linux-helper",

@@ -87,7 +87,7 @@ This installs application files under `~/.local/share/ccbaga-install`, creates A
 
 ## Desktop identity scope
 
-Desktop identity switching uses the existing verified-archive and rollback transaction. Cookie snapshots use SQLite backup so committed WAL contents are included; a linked or foreign-owned sidecar or incompatible Cookie schema blocks the operation. Sparse cache files are archived as regular files, without relaxing archive link/path checks. General residue scanning retains its explicit cache/log scope and does not delete the whole Desktop profile. OAuth and Cookie credentials may be bound to the local OS key store; moving an archive does not guarantee a valid login on another machine.
+Desktop identity switching uses the existing verified-archive and rollback transaction. Cookie snapshots use SQLite backup so committed WAL contents are included; a linked or foreign-owned sidecar, orphaned sidecar, incompatible Cookie table/index/version, or trigger/view blocks the operation. Filtered private snapshots are vacuumed so previously deleted non-login Cookie bytes are not carried into an exported identity. A failed login-data read is shown as unavailable, rather than as an empty identity. Sparse cache files are archived as regular files, without relaxing archive link/path checks. General residue scanning retains its explicit cache/log scope and does not delete the whole Desktop profile. OAuth and Cookie credentials may be bound to the local OS key store; moving an archive does not guarantee a valid login on another machine.
 
 ## Features and limits
 

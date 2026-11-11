@@ -381,17 +381,17 @@ pub(crate) fn account_key(key: &str) -> bool {
 }
 
 // ----- 仅返回桌面登录数据是否存在，不向 UI 返回凭据正文 -----
-pub(crate) fn desktop_present(root: &Path) -> bool {
+pub(crate) fn desktop_present(root: &Path) -> Result<bool, String> {
     #[cfg(target_os = "linux")]
     {
         return super::desktop::present(root);
     }
     #[cfg(not(target_os = "linux"))]
-    definitions(root, &Policy::default())
+    Ok(definitions(root, &Policy::default())
         .into_iter()
         .filter(|s| s.category == "desktop" || s.category == "desktop-cookies")
         .any(|s| {
             crate::identities::private::parents(s.path.parent().unwrap()).is_ok()
                 && crate::identities::private::safe(&s.path).is_ok()
-        })
+        }))
 }

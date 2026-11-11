@@ -306,3 +306,107 @@ fn linux_desktop_failed_switch_rolls_back_login_without_touching_history() {
         assert_eq!(fs::read(path).unwrap(), bytes);
     }
 }
+
+#[test]
+fn unreadable_desktop_login_is_unknown_instead_of_empty() {
+    let f = Fixture::new();
+    f.write(".config/Claude/config.json", br#"{"theme":"dark"}"#);
+    f.write(".config/Claude/Cookies", b"not a SQLite database");
+    let current = profile::read(&f.home);
+    assert!(current.present && current.unavailable);
+}
+
+#[test]
+fn missing_cookie_database_rejects_all_orphaned_sidecars() {
+    let f = Fixture::new();
+    drop(setup(&f, ".config/Claude/Cookies"));
+    let _store = store::Store::open(&f.vault, &f.home).unwrap();
+    let snapshot =
+        crate::cleaner::desktop::snapshot(&f.home.join(".config/Claude/Cookies"), &f.vault)
+            .unwrap();
+    f.write("outside", b"do not touch");
+    for (n, suffix) in ["-wal", "-shm", "-journal"].into_iter().enumerate() {
+        for linked in [false, true] {
+            let folder = f.home.join(format!("missing-{n}-{linked}"));
+            private::directory(&folder).unwrap();
+            let path = folder.join("Cookies");
+            let sidecar = folder.join(format!("Cookies{suffix}"));
+            if linked {
+                symlink(f.home.join("outside"), &sidecar).unwrap();
+            } else {
+                private::write(&sidecar, b"orphan").unwrap();
+            }
+            assert!(crate::cleaner::desktop::restore(&path, &snapshot.path).is_err());
+            assert!(!path.exists());
+            assert_eq!(fs::read(f.home.join("outside")).unwrap(), b"do not touch");
+        }
+    }
+}
+
+#[test]
+fn incompatible_cookie_schema_or_version_never_replaces_unrelated_rows() {
+    let f = Fixture::new();
+    drop(setup(&f, ".config/Claude/Cookies"));
+    let _store = store::Store::open(&f.vault, &f.home).unwrap();
+    let snapshot =
+        crate::cleaner::desktop::snapshot(&f.home.join(".config/Claude/Cookies"), &f.vault)
+            .unwrap();
+    for (n, constraint, version, trigger) in [
+        (0, "UNIQUE(name)", "24", false),
+        (1, "PRIMARY KEY(host_key,name,path)", "25", false),
+        (2, "PRIMARY KEY(host_key,name,path)", "24", true),
+    ] {
+        let target = f.home.join(format!("target-{n}"));
+        let db = Connection::open(&target).unwrap();
+        db.execute_batch(&format!("CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT); INSERT INTO meta VALUES('version','{version}'); CREATE TABLE cookies(host_key TEXT NOT NULL,name TEXT NOT NULL,value TEXT NOT NULL,encrypted_value BLOB NOT NULL,path TEXT NOT NULL,{constraint}); INSERT INTO cookies VALUES('unrelated.invalid','lastActiveOrg','keep',X'010203','/');")).unwrap();
+        if trigger {
+            db.execute_batch("CREATE TRIGGER cookie_insert AFTER INSERT ON cookies BEGIN DELETE FROM cookies WHERE host_key='unrelated.invalid'; END;").unwrap();
+        }
+        drop(db);
+        assert!(crate::cleaner::desktop::restore(&target, &snapshot.path).is_err());
+        let db = Connection::open(target).unwrap();
+        assert_eq!(
+            cookie(&db, "unrelated.invalid", "lastActiveOrg").as_deref(),
+            Some("keep")
+        );
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM cookies", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+}
+
+#[test]
+fn filtered_cookie_snapshot_does_not_export_previously_deleted_cookie_bytes() {
+    let f = Fixture::new();
+    let db = setup(&f, ".config/Claude/Cookies");
+    let marker = "private-cookie-previously-deleted-".repeat(500);
+    db.execute_batch("PRAGMA secure_delete=OFF;").unwrap();
+    db.execute(
+        "INSERT INTO cookies VALUES('unrelated.invalid','deleted',?1,X'010203','/')",
+        [&marker],
+    )
+    .unwrap();
+    db.execute("DELETE FROM cookies WHERE name='deleted'", [])
+        .unwrap();
+    drop(db);
+    let bytes = fs::read(f.home.join(".config/Claude/Cookies")).unwrap();
+    assert!(bytes
+        .windows(32)
+        .any(|bytes| bytes == &marker.as_bytes()[..32]));
+    let _store = store::Store::open(&f.vault, &f.home).unwrap();
+    let snapshot =
+        crate::cleaner::desktop::snapshot(&f.home.join(".config/Claude/Cookies"), &f.vault)
+            .unwrap();
+    let bytes = fs::read(&snapshot.path).unwrap();
+    assert!(!bytes
+        .windows(32)
+        .any(|bytes| bytes == &marker.as_bytes()[..32]));
+    let db = Connection::open(&snapshot.path).unwrap();
+    assert_eq!(
+        cookie(&db, ".claude.ai", "sessionKey").as_deref(),
+        Some("session-a")
+    );
+}
