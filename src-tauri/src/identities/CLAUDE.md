@@ -6,7 +6,7 @@ store.rs: 原地加密备份只提交档案、不切换浏览器或清工作区�
 profile.rs: 只读显示白名单与本地凭据订阅/过期元数据，已认证归档生成脱敏摘要；状态只表示 local_unexpired/expired/refresh_available/api_key/unknown，不联网、不承诺自动续期，未知过期时间及旧摘要降级未知；API-only 设置仍是身份；只展示真实进程名/PID，不从可能复用 PID 的旧会话文件猜测工作区，不打开系统钥匙串或返回 Cookie 值；Linux 只读登录字段/名称存在性，失败标记不可读。
 credentials.rs: 默认 Code 凭据按用户策略合并身份与共享 MCP/插件秘密；正文只在原生内存流动。
 archive.rs: 新身份复用空浏览器预留编号；新快照排除固定锁的普通文件/空目录与精确默认 debug/latest 链接，不跟随或删除原件；通用迁移/恢复遍历仍拒绝全部链接；普通文件 tar/Zstd 写入（禁用 GNU sparse）与旧 gzip 兼容验收，代次与卡片编号分离，源文件/压缩认证落盘/完整解包验收分阶段报告，完整认证后才交目录事务。
-linux_tests.rs: Linux 稀疏缓存往返、Desktop OAuth/Cookie/WAL 暂存与窄清除/恢复/直接删除/失败回滚；验证非登录 Cookie、配置、历史与工作区保留及 sidecar 链接拒绝，全部使用合成临时样本。
+linux_tests.rs: Linux 稀疏缓存往返、Desktop OAuth/Cookie/WAL 暂存与窄清除/恢复/直接删除/失败回滚；验证非登录 Cookie、配置、历史与工作区保留及 sidecar 链接拒绝，约束冲突保留原登录行与非登录行，全部使用合成临时样本。
 catalog.rs: 有界读取账号 UUID/组织（缺失时邮箱/组织），以本机 HMAC 匹配稳定槽位；显式事务打开 Store 时仅为缺账号索引的旧副本验收建索引，缺摘要不强制解密；提交后去重/回收，未知账号与恢复检查点不猜测合并，Desktop-only 暂存保守保留。
 compression.rs: Zstandard 级别 3 流式压缩与校验和，读取侧限制窗口并按魔数兼容旧 gzip；外层认证协议不变。
 optimization_tests.rs: 共享虚构账号夹具、A/B 连续切换、原地备份不动工作区与浏览器指针、缺摘要惰性保留、空身份往返、仓库路径/代理和跨应用不同账号资产保留、三平台路径契约、凭据刷新、跨组织隔离、崩溃恢复及压缩认证兼容；手动 500 会话性能样本不设 CI 时间阈值。

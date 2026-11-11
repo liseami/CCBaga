@@ -1,5 +1,5 @@
 // [INPUT]: 明确的 Linux Desktop OAuth JSON 键、Cookie 数据库和当前用户文件边界。
-// [OUTPUT]: 仅登录 Cookie 的一致性快照/事务清除/合并恢复，保留其他 Cookie、配置和历史。
+// [OUTPUT]: 仅登录 Cookie 的一致性快照/事务清除/合并恢复，约束冲突回滚，保留其他 Cookie、配置和历史。
 // [POS]: 身份事务专用；SQLite 正文只进入私有暂存和加密归档，不进入 UI 或通用残留删除。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::identity::Source;
@@ -297,7 +297,7 @@ pub(crate) fn restore(path: &Path, saved: &Path) -> Result<(), String> {
             .map_err(problem)?;
         transaction
             .execute(
-                &format!("INSERT OR REPLACE INTO cookies ({columns_sql}) VALUES ({placeholders})"),
+                &format!("INSERT OR ABORT INTO cookies ({columns_sql}) VALUES ({placeholders})"),
                 params_from_iter(values),
             )
             .map_err(problem)?;

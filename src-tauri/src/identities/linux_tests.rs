@@ -1,5 +1,5 @@
 // [INPUT]: Linux 临时 Desktop 配置、稀疏文件与合成 SQLite Cookie/WAL。
-// [OUTPUT]: 身份往返/直接删除保留设置、历史、工作区和非登录 Cookie，拒绝数据库链接。
+// [OUTPUT]: 身份往返/直接删除保留设置、历史、工作区和非登录 Cookie；拒绝数据库链接，约束冲突回滚。
 // [POS]: Linux 身份事务回归；不读取真实账号、运行应用或修改 HOME。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{optimization_tests::Fixture, *};
@@ -375,6 +375,37 @@ fn incompatible_cookie_schema_or_version_never_replaces_unrelated_rows() {
                 .unwrap(),
             1
         );
+    }
+}
+
+#[test]
+fn matching_cookie_schema_conflicts_roll_back_without_replacing_unrelated_rows() {
+    let f = Fixture::new();
+    for (n, conflict) in ["", " ON CONFLICT REPLACE"].into_iter().enumerate() {
+        let saved = f.home.join(format!("saved-cookies-{n}"));
+        let target = f.home.join(format!("target-cookies-{n}"));
+        for path in [&saved, &target] {
+            drop(private::create(path).unwrap());
+            Connection::open(path).unwrap().execute_batch(&format!("CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT); INSERT INTO meta VALUES('version','24'); CREATE TABLE cookies(host_key TEXT NOT NULL,name TEXT NOT NULL,value TEXT NOT NULL,encrypted_value BLOB NOT NULL,path TEXT NOT NULL,UNIQUE(name){conflict});")).unwrap();
+        }
+        let source = Connection::open(&saved).unwrap();
+        source.execute_batch("INSERT INTO cookies VALUES('.claude.ai','lastActiveOrg','saved-org',X'010203','/');").unwrap();
+        drop(source);
+        let destination = Connection::open(&target).unwrap();
+        destination.execute_batch("INSERT INTO cookies VALUES('unrelated.invalid','lastActiveOrg','keep-other-site',X'010203','/'); INSERT INTO cookies VALUES('.claude.ai','sessionKey','keep-current-login',X'010203','/');").unwrap();
+        drop(destination);
+
+        assert!(crate::cleaner::desktop::restore(&target, &saved).is_err());
+        let db = Connection::open(target).unwrap();
+        assert_eq!(
+            cookie(&db, "unrelated.invalid", "lastActiveOrg").as_deref(),
+            Some("keep-other-site")
+        );
+        assert_eq!(
+            cookie(&db, ".claude.ai", "sessionKey").as_deref(),
+            Some("keep-current-login")
+        );
+        assert_eq!(cookie(&db, ".claude.ai", "lastActiveOrg"), None);
     }
 }
 
