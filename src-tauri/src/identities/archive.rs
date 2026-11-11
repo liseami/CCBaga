@@ -1,5 +1,5 @@
 // [INPUT]: 白名单身份源、SQLite 账号目录、Zstandard/旧 gzip 与认证加密流。
-// [OUTPUT]: 不可变归档代次与短期解包区、真实局部进度；仅当前快照排除默认 debug/latest 链接，通用迁移/恢复遍历仍拒绝链接，首身份复用空浏览器编号。
+// [OUTPUT]: 普通文件 tar/Zstd 不可变归档（禁用 sparse）、Linux 登录 Cookie 一致性快照与完整认证验收。
 // [POS]: 保险库的数据格式边界，与 store 的工作区切换事务分离，旧 gzip 归档保持可读。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{
@@ -235,7 +235,7 @@ impl Store {
             .collect::<Vec<_>>();
         let mut fingerprints = Vec::with_capacity(sources.len());
         for (index, source) in sources.iter().enumerate() {
-            fingerprints.push(identity::fingerprint(&source.path)?);
+            fingerprints.push(identity::source_fingerprint(source)?);
             reporter.log(
                 "validate",
                 "running",
@@ -307,6 +307,8 @@ impl Store {
                 codec::Seal::new(private::create(&pending)?, &self.key).map_err(problem)?;
             let buffered = BufWriter::with_capacity(64 * 1024, output);
             let mut tar = tar::Builder::new(compression::encode(buffered).map_err(problem)?);
+            // The reader deliberately accepts only regular files and directories.
+            tar.sparse(false);
             reporter.log(
                 "archive",
                 "running",
@@ -316,6 +318,15 @@ impl Store {
             );
             for (n, source) in manifest.sources.iter().enumerate() {
                 self.stopped()?;
+                #[cfg(target_os = "linux")]
+                let cookie = if source.category == crate::cleaner::desktop::COOKIE_CATEGORY {
+                    Some(crate::cleaner::desktop::snapshot(
+                        &source.path,
+                        &self.vault,
+                    )?)
+                } else {
+                    None
+                };
                 let archive_path = PathBuf::from(format!("data/{n}"));
                 if !source.keys.is_empty() {
                     let text = fs::read_to_string(&source.path).map_err(problem)?;
@@ -343,7 +354,13 @@ impl Store {
                         },
                     )?;
                 } else {
-                    let mut file = fs::File::open(&source.path).map_err(problem)?;
+                    let path = &source.path;
+                    #[cfg(target_os = "linux")]
+                    let path = cookie
+                        .as_ref()
+                        .map(|snapshot| &snapshot.path)
+                        .unwrap_or(path);
+                    let mut file = fs::File::open(path).map_err(problem)?;
                     tar.append_file(archive_path, &mut file).map_err(problem)?;
                 }
                 reporter.log(
@@ -393,7 +410,7 @@ impl Store {
                 .zip(&manifest.fingerprints)
                 .enumerate()
             {
-                if identity::fingerprint(&source.path)? != *stamp {
+                if identity::source_fingerprint(source)? != *stamp {
                     return Err("身份数据发生变化；未切换身份。".into());
                 }
                 reporter.log(

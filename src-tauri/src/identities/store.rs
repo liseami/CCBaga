@@ -1,5 +1,5 @@
 // [INPUT]: SQLite 目录、用户策略、白名单源、已验收归档代次、认证加密与平台凭据桥。
-// [OUTPUT]: 不改工作区/浏览器选择的原地备份、先暂存后切换、持久恢复记录、原位配置合并、显式删除与真实阶段进度；旧归档瞬态锁不恢复。
+// [OUTPUT]: 已验证归档的备份/切换/恢复/删除事务；窄 JSON/Cookie 合并保留个人资料，失败可回滚。
 // [POS]: 身份的文件事务；SQLite 与文件系统由恢复日志协调，不能假装是同一原子事务。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{
@@ -243,7 +243,10 @@ impl Store {
                 Ok(_) => {
                     private::parents(source.path.parent().unwrap())?;
                     private::safe(&source.path)?;
-                    if !source.keys.is_empty() {
+                    if cfg!(target_os = "linux") && source.category == "desktop-cookies" {
+                        #[cfg(target_os = "linux")]
+                        crate::cleaner::desktop::clear(&source.path)?;
+                    } else if !source.keys.is_empty() {
                         identity::apply_config(source, &serde_json::json!({}))?;
                     } else if source.path.is_dir() {
                         fs::remove_dir_all(&source.path).map_err(problem)?;
@@ -291,7 +294,10 @@ impl Store {
                 private::safe(&source.path)?;
             }
             let data = stage.path.join(format!("data/{n}"));
-            if !source.keys.is_empty() {
+            if cfg!(target_os = "linux") && source.category == "desktop-cookies" {
+                #[cfg(target_os = "linux")]
+                crate::cleaner::desktop::restore(&source.path, &data)?;
+            } else if !source.keys.is_empty() {
                 let bytes = fs::read(data).map_err(problem)?;
                 let saved = if stage.manifest.sources[*n].keys.is_empty() {
                     identity::extract(source, std::str::from_utf8(&bytes).map_err(problem)?)?
@@ -360,13 +366,13 @@ impl Store {
             let sources = identity::sources(&self.home, policy)?;
             let fingerprints = sources
                 .iter()
-                .map(|s| identity::fingerprint(&s.path))
+                .map(identity::source_fingerprint)
                 .collect::<Result<Vec<_>, _>>()?;
             let credentials = self.snapshot_keys()?;
             // 预先验证凭据格式和范围，删除没有隐式恢复副本。
             super::credentials::clear(&credentials, policy)?;
             for (s, stamp) in sources.iter().zip(&fingerprints) {
-                if identity::fingerprint(&s.path)? != *stamp {
+                if identity::source_fingerprint(s)? != *stamp {
                     return Err("身份数据发生变化；未修改身份。".into());
                 }
             }
@@ -517,7 +523,7 @@ impl Store {
                 .zip(&outgoing.manifest.fingerprints)
                 .enumerate()
             {
-                if identity::fingerprint(&source.path)? != *stamp {
+                if identity::source_fingerprint(source)? != *stamp {
                     return Err("身份数据发生变化；未切换身份。".into());
                 }
                 reporter.log(

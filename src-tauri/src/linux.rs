@@ -1,5 +1,5 @@
 // [INPUT]: 当前用户 procfs、zoneinfo、桌面偏好和本地会话工具。
-// [OUTPUT]: Linux 平台 JSON 桥；浏览器资料按唯一绝对参数/目录设备与 inode/进程启动时间核验，可疑候选读取失败阻断；区域预检保留 modifier，未知状态不冒充成功。
+// [OUTPUT]: Linux 原生桥；已支持 Desktop 精确进程入口、独立浏览器归属与区域检查，未知不冒充成功。
 // [POS]: 仅原生识别与用户触发的系统操作；不含网络客户端，不向 UI 输出进程参数或代理秘密。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde_json::{json, Value};
@@ -200,6 +200,16 @@ pub fn node_cli(process: &Process) -> bool {
     }
     false
 }
+pub fn desktop_process(process: &Process) -> bool {
+    matches!(
+        process.executable.to_str(),
+        Some(
+            "/usr/lib/claude-desktop/claude-desktop"
+                | "/usr/lib/claude-desktop/chrome_crashpad_handler"
+                | "/usr/lib/claude-desktop/resources/cowork-linux-helper"
+        )
+    )
+}
 const PROFILE_UNKNOWN: &str = "无法确认浏览器进程的资料归属，未操作资料。";
 #[derive(PartialEq, Eq)]
 struct ProfileProcess {
@@ -272,7 +282,9 @@ fn profile_processes_at(proc_root: &Path, profile: &Path) -> Result<Vec<ProfileP
         .map_err(|_| PROFILE_UNKNOWN)?
         .flatten()
     {
-        let Ok(pid) = entry.file_name().to_string_lossy().parse::<i32>() else { continue };
+        let Ok(pid) = entry.file_name().to_string_lossy().parse::<i32>() else {
+            continue;
+        };
         if pid <= 1 {
             continue;
         }
@@ -291,7 +303,9 @@ fn profile_processes_at(proc_root: &Path, profile: &Path) -> Result<Vec<ProfileP
             continue;
         }
         let read = (|| -> Result<Option<ProfileProcess>, String> {
-            let Some(before) = browser_stamp(&process)? else { return Ok(None) };
+            let Some(before) = browser_stamp(&process)? else {
+                return Ok(None);
+            };
             let bytes = fs::read(process.join("cmdline")).map_err(|_| PROFILE_UNKNOWN)?;
             if bytes.last() != Some(&0) {
                 return Err(PROFILE_UNKNOWN.into());
@@ -320,9 +334,17 @@ fn profile_processes_at(proc_root: &Path, profile: &Path) -> Result<Vec<ProfileP
             // 沙箱辅助进程的 exe 可能不可读；仅元数据稳定且参数明确为辅助模式才先排除。
             let executable = executable.map_err(|_| PROFILE_UNKNOWN)?;
             let Some(selected) = selected else {
-                return if matches!(executable.parent().and_then(Path::file_name).and_then(|s| s.to_str()), Some("LinuxBrowser" | "CCBaga-B")) {
+                return if matches!(
+                    executable
+                        .parent()
+                        .and_then(Path::file_name)
+                        .and_then(|s| s.to_str()),
+                    Some("LinuxBrowser" | "CCBaga-B")
+                ) {
                     Err(PROFILE_UNKNOWN.into())
-                } else { Ok(None) };
+                } else {
+                    Ok(None)
+                };
             };
             let a = fs::metadata(selected).map_err(|_| PROFILE_UNKNOWN)?;
             let b = fs::metadata(profile).map_err(|_| PROFILE_UNKNOWN)?;
@@ -550,6 +572,28 @@ pub unsafe fn rf_system_location() -> *mut c_char {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn desktop_processes_require_exact_installed_executables() {
+        for (path, expected) in [
+            ("/usr/lib/claude-desktop/claude-desktop", true),
+            ("/usr/lib/claude-desktop/chrome_crashpad_handler", true),
+            (
+                "/usr/lib/claude-desktop/resources/cowork-linux-helper",
+                true,
+            ),
+            ("/tmp/claude-desktop", false),
+            ("/usr/lib/claude-desktop-backup/claude-desktop", false),
+            ("/usr/lib/claude-desktop/other-app", false),
+            ("/usr/bin/node", false),
+        ] {
+            let p = Process {
+                pid: 42,
+                executable: path.into(),
+                args: Vec::new(),
+            };
+            assert_eq!(desktop_process(&p), expected, "{path}");
+        }
+    }
     #[test]
     fn machine_read_is_non_mutating_and_unknown_location_is_null() {
         let state: Value = crate::native::decode(unsafe { rf_browser_machine() }).unwrap();

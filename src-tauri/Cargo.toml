@@ -1,5 +1,5 @@
 # [INPUT]: 固定的原生依赖、平台 Win32 能力与可追溯 GLib 兼容回补。
-# [OUTPUT]: 宿主构建/测试依赖图与发布优化配置，实际版本由 Cargo.lock 锁定。
+# [OUTPUT]: 宿主依赖图、SQLite bundled/一致性 backup 和发布优化；版本由 Cargo.lock 锁定。
 # [POS]: src-tauri 的构建入口；对话框/更新器保留原生权限边界。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 [package]
@@ -33,7 +33,7 @@ tar = "0.4.46"
 ring = "0.17.14"
 zeroize = "1.9.0"
 base64 = "0.23.1"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
 
 [target.'cfg(windows)'.dependencies]
 dunce = "1"

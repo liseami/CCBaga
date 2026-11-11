@@ -1,5 +1,5 @@
 // [INPUT]: 隔离临时目录/Windows 子进程 AppData、脱敏配置、清理事务与当前用户官方原生 CLI 版本路径。
-// [OUTPUT]: 白名单、文件夹范围、配置保留、组织检索、直接删除、大目录完整统计、读失败拒绝快照、快照保护、真实日志次序与原生版本/可丢弃 Node CLI 进程的识别/终止/隔离验证。
+// [OUTPUT]: 临时清理/进程回归，包含 Linux Desktop 当前用户/精确入口检查；不修改真实用户资料。
 // [POS]: 仅操作测试数据，进程样本由本机编译并握手确认启动，避免重用 Apple 平台二进制，不访问现有 Claude 数据。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -661,4 +661,18 @@ fn windows_redirected_appdata_remains_whitelisted() {
     let sources = super::identity::sources(&root, &crate::identities::Policy::default()).unwrap();
     assert!(sources.iter().any(|source| source.path == Path::new(&cookie.path)));
     assert!(sources.iter().all(|source| super::identity::allowed(&root, source)));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn linux_desktop_process_preview_preserves_current_user_boundary() {
+    let executable = "/usr/lib/claude-desktop/claude-desktop";
+    assert_eq!(
+        process_row(&format!("501 42 {executable}"), &[42], 501)
+            .unwrap()
+            .name,
+        "Claude Desktop"
+    );
+    assert!(process_row(&format!("502 42 {executable}"), &[42], 501).is_none());
+    assert!(process_row(&format!("501 42 {executable}"), &[], 501).is_none());
 }

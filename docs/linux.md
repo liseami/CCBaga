@@ -1,6 +1,6 @@
 <!--
 [INPUT]: Linux 原生实现、Ubuntu 22.04 构建基线、产物 ELF 符号验收与平台边界。
-[OUTPUT]: 社区开发依赖、源码构建和平台限制；不提供官方发布流程。
+[OUTPUT]: 社区开发依赖、源码构建、Linux Desktop 窄身份范围与平台限制；不提供官方发布流程。
 [POS]: README 的 Linux 开发入口，与原生平台边界对应。
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -85,13 +85,17 @@ bun run install:apps
 
 This installs application files under `~/.local/share/ccbaga-install`, creates A/B entries under `~/.local/share/applications`, and refuses to replace an unrelated launcher or a running installation. It leaves user profiles and settings intact. A custom prefix is supported with `sh scripts/install-apps.sh --prefix /absolute/prefix`; include that prefix's `share` directory in `XDG_DATA_DIRS` if needed. Installation does not change the default browser. The browser page's explicit default-browser action registers the persistent installed executable (or the AppImage path) and verifies both HTTP and HTTPS associations.
 
+## Desktop identity scope
+
+Desktop identity switching uses the existing verified-archive and rollback transaction. Cookie snapshots use SQLite backup so committed WAL contents are included; a linked or foreign-owned sidecar or incompatible Cookie schema blocks the operation. Sparse cache files are archived as regular files, without relaxing archive link/path checks. General residue scanning retains its explicit cache/log scope and does not delete the whole Desktop profile. OAuth and Cookie credentials may be bound to the local OS key store; moving an archive does not guarantee a valid login on another machine.
+
 ## Features and limits
 
 | Feature | Linux behavior |
 | --- | --- |
 | Claude identities | SQLite metadata and encrypted local archives; snapshot, owner, symlink and process checks. Users choose which personal data stays in the workspace. Project source is not scanned. |
 | Paths | Shared `.claude` targets plus Claude CLI cache in `XDG_CACHE_HOME` (default `~/.cache`); Claude Desktop cache/logs in `XDG_CONFIG_HOME` (default `~/.config`). Absolute custom XDG paths are supported. |
-| Third-party Claude Desktop | Only explicit cache/log paths are scanned. Full desktop account reset is intentionally unavailable because Linux desktop distributions have differing layouts. |
+| Third-party Claude Desktop | Identity operations support the packaged `/usr/lib/claude-desktop/claude-desktop` layout: only OAuth/account keys in `config.json` and Claude/Anthropic login Cookie rows in `Cookies` or `Network/Cookies` move with the identity. Other preferences, Cookies, Local Storage, IndexedDB, history and workspaces remain. Unknown third-party layouts are not automatically reset. |
 | Credentials | Default file-based CLI credentials move with the identity. Secret Service/KWallet cleanup and unlock are unavailable and produce an explicit warning/error. No empty-success keyring result is fabricated. |
 | CLI install management | Existing native and npm flows, including nvm. Requires zsh; Homebrew cask detection runs only on macOS. |
 | Browser | Pinned Linux fingerprint engine, isolated profiles, cache-only cleanup and explicitly confirmed full profile reset, rotation and real observations. Full reset removes all browser data for the current identity. Linux platform is checked; Chromium does not expose the kernel release through UA client hints, so that field is not compared with `uname`. |
@@ -102,4 +106,4 @@ This installs application files under `~/.local/share/ccbaga-install`, creates A
 | Location | GNOME's location preference can be read, disabled and reread. Other desktops return unknown, never disabled. Full machine alignment stops before modifying settings on desktops with unknown location state. Portal/other location services are not independently verified; do not treat this preference as a global privacy guarantee. |
 | Settings launcher | GNOME and KDE panels; other desktops return a manual-action message. |
 
-Linux keyring and third-party desktop reset, session-language changes, and independent portal/location verification remain platform limitations. A Linux build passing local tests does not validate every distribution, display server, desktop, privileged operation or remote VPS.
+Linux keyring and unknown third-party desktop layouts, session-language changes, and independent portal/location verification remain platform limitations. A Linux build passing local tests does not validate every distribution, display server, desktop, privileged operation or remote VPS.
