@@ -308,7 +308,7 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
 .network-step-number { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--foreground); font: 12px ui-monospace,monospace; }
 .network-step-actions { display: flex; align-items: center; gap: 10px; }
 .network-step button { max-width: 100%; white-space: normal; text-align: center; }
-.domain-diagnostics { display: grid; gap: 14px; padding: 24px 30px; }
+.domain-diagnostics, .dns-diagnostics { display: grid; gap: 14px; padding: 24px 30px; }
 .domain-diagnostics-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .domain-diagnostics-header h2 { font-size: 17px; font-weight: 500; }
 .domain-outcome { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px; border: 1px solid var(--landing-line); background: #f7f7f5; color: var(--muted-foreground); border-radius: 8px; font-size: 12px; }
@@ -349,7 +349,7 @@ h3 { margin: 0; font-size: 13px; font-weight: 500; }
   .network-page { padding: 0 0 24px; }
   .network-page > .cleanup-title { margin-inline: 0; }
   .network-step { padding: 24px 16px; }
-  .domain-diagnostics { padding: 24px; }
+  .domain-diagnostics, .dns-diagnostics { padding: 24px; }
   .skill-install { padding: 24px; }
 }
 @media(max-width:800px) {

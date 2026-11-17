@@ -1,5 +1,5 @@
 // [INPUT]: 跨平台原生边界、Tauri 生命周期/custom-protocol、身份/清理/浏览器/系统命令与官方签名更新、重启、Rust 原生文件选择插件。
-// [OUTPUT]: CCBaga-A 窗口/托盘、身份与一次性文件选择迁移命令；文件路径留在原生状态，不开放通用 WebView 文件能力。
+// [OUTPUT]: CCBaga-A 窗口/托盘、独立系统 DNS 检测、身份与一次性文件选择迁移命令；文件路径留在原生状态，不开放通用 WebView 文件能力。
 // [POS]: 应用编排层；不注册翻译快捷键，不读取翻译设置或 API 密钥。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
@@ -9,6 +9,7 @@ compile_error!("发布构建需要 custom-protocol；使用 tauri build 或 carg
 mod browser;
 mod claude_cli;
 mod cleaner;
+mod dns_diagnostics;
 mod identities;
 #[cfg(target_os = "linux")]
 mod linux;
@@ -170,7 +171,8 @@ fn main() {
             browser::browser_set_default,
             browser::browser_rotate,
             network_links::network_open_resource,
-            network_links::network_diagnose_domains
+            network_links::network_diagnose_domains,
+            dns_diagnostics::network_diagnose_dns
         ])
         .build(tauri::generate_context!())
         .expect("无法启动 CCBaga-A")

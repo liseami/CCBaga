@@ -1,4 +1,4 @@
-# [INPUT]: 固定的原生依赖、平台 Win32 能力与可追溯 GLib 兼容回补。
+# [INPUT]: 固定的原生依赖、系统 DNS 的 Win32 API/有界等待与可追溯 GLib 兼容回补。
 # [OUTPUT]: 宿主构建/测试依赖图与发布优化配置，实际版本由 Cargo.lock 锁定。
 # [POS]: src-tauri 的构建入口；对话框/更新器保留原生权限边界。
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "socks"] }
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "time"] }
 tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2"
 tauri-plugin-dialog = "=2.8.3"
@@ -38,6 +38,7 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 [target.'cfg(windows)'.dependencies]
 dunce = "1"
 windows-sys = { version = "0.61", features = [
+    "Win32_NetworkManagement_Dns",
     "Win32_Foundation",
     "Win32_System_Threading",
     "Win32_System_Time",
