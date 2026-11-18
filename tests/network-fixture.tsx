@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 真实网络页、Tauri mockIPC 与四类虚构诊断结果（四个固定域名，含 Cloudflare 浏览器质询可达）。
- * [OUTPUT]: 可控的成功/部分失败/命令异常/缺失结果，检测期间由测试显式释放。
+ * [OUTPUT]: Claude 连通性与系统 DNS 的延期完整/不完整/空/命令异常/无效观测，检测期间由测试显式释放。
  * [POS]: 无真实连接、密钥或外部导航的 GUI 回归样本。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,8 +13,18 @@ import '../src/index.css';
 import '../src/style.css';
 let mode='success';
 let release=()=>{};
-Object.assign(window,{networkFixture:{setMode:(value:string)=>{mode=value;},finish:()=>release(),language:setLocale}});
+let dnsMode='complete';
+let releaseDns=()=>{};
+Object.assign(window,{networkFixture:{setMode:(value:string)=>{mode=value;},finish:()=>release(),language:setLocale,setDnsMode:(value:string)=>{dnsMode=value;},finishDns:()=>releaseDns()}});
 mockIPC(command=>{
+ if(command==='network_diagnose_dns')return new Promise((resolve,reject)=>{releaseDns=()=>{
+  if(dnsMode==='error')return reject('系统 DNS 查询超时，检测未完成。');
+  if(dnsMode==='invalid')return resolve(null);
+  const result={complete:dnsMode!=='partial',client:{ip:'203.0.113.5',country:'United States',org:'Fixture proxy'},lookups:dnsMode==='partial'?11:12,expected_lookups:12,resolvers:[{ip:'1.1.1.1',operator:'Cloudflare',org:'Cloudflare',country:'United States',asn:13335},{ip:'2001:4860:4860::8888',operator:'Google',org:'Google',country:'United States',asn:15169}]};
+  if(dnsMode==='empty')return resolve({...result,resolvers:[]});
+  if(dnsMode==='none')return resolve({...result,complete:false,lookups:0,resolvers:[]});
+  resolve(result);
+ };});
  if(command!=='network_diagnose_domains')throw Error(`Unexpected fixture command: ${command}`);
  return new Promise((resolve,reject)=>{release=()=>{
   if(mode==='error')return reject('fixture connection interrupted');

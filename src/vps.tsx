@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 固定资源入口、服务规格、Claude 核心域名分流诊断、Cromma Tabs/Textarea、双语提示词与原生剪贴板。
- * [OUTPUT]: Laper 满宽细线三步入口与斜纹分隔、Claude 出口四态检测、汇总成功/失败和逐域原因（连接对端不等于出口）、五项 AI 图标分段与双语提示词一键复制。
- * [POS]: 网络资源与分流诊断；应用不收集密钥或执行远端部署，诊断仅进行只读网络连通性探测。
+ * [OUTPUT]: Laper 三步入口、Claude 连通性与独立系统 DNS 出口检测、五项 AI 图标分段与双语提示词一键复制。
+ * [POS]: 网络资源、只读连通性与系统 DNS 观测；应用不收集密钥或执行远端部署，不修改网络配置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import {Button,Tabs,Textarea} from 'cromma-ui';
@@ -11,6 +11,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {useI18n} from './i18n';
 import {AppDialog} from './dialog';
 import {agents,installationPrompt} from './network-skill';
+import {DnsDiagnostics} from './dns-diagnostics';
 
 export type DomainDiagnosis = {
     domain: string;
@@ -93,6 +94,8 @@ export function VpsPanel() {
                 </li>;
             })}</ul>
         </section>
+        <div className="landing-section-band" aria-hidden="true"/>
+        <DnsDiagnostics/>
         <div className="landing-section-band" aria-hidden="true"/>
         <section className="skill-install" aria-labelledby="skill-install-title">
             <h2 id="skill-install-title">{t('Skill')}</h2>
