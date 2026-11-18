@@ -31,7 +31,7 @@ export function DnsDiagnostics() {
     const {t}=useI18n();
     const [running,setRunning]=useState(false),[result,setResult]=useState<DnsDiagnosis|null>(null),[error,setError]=useState('');
     const phase=running?'checking':error?'failed':result?result.complete?'complete':'partial':'idle';
-    const label=phase==='checking'?'观测中':phase==='complete'?'观测完成':phase==='partial'?'观测未完成':phase==='failed'?'观测失败':'待观测';
+    const label=phase==='checking'?'检测中':phase==='complete'?'观测完成':phase==='partial'?'观测未完成':phase==='failed'?'观测失败':'待检测';
     async function run() {
         if(running)return;
         setRunning(true);setResult(null);setError('');
@@ -45,7 +45,7 @@ export function DnsDiagnostics() {
     return <section className="dns-diagnostics" aria-labelledby="dns-diagnostics-title" data-status={phase} aria-busy={running}>
         <div className="domain-diagnostics-header">
             <h2 id="dns-diagnostics-title">{t('系统 DNS 出口观测')}</h2>
-            <Button variant="secondary" size="small" disabled={running} leftIcon={<Refresh aria-hidden size={15} className={running?'spin':''}/>} onClick={()=>void run()}>{running?t('观测中'):phase==='idle'?t('开始观测'):t('重新观测')}</Button>
+            <Button variant="secondary" size="small" disabled={running} leftIcon={<Refresh aria-hidden size={15} className={running?'spin':''}/>} onClick={()=>void run()}>{running?t('检测中'):phase==='idle'?t('开始检测'):t('重新检测')}</Button>
         </div>
         <p className="domain-detail">{t('通过系统解析器查询随机域名，由 dnsleak.dev 权威端观测解析出口。该服务会看到请求出口 IP 和测试域名，不接收账号或浏览记录。')}</p>
         <div className={`domain-outcome ${running?'checking':'idle'}`} role="status" aria-live="polite">

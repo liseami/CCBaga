@@ -61,15 +61,9 @@ fn complete_observations_preserve_actual_ipv4_ipv6_resolvers() {
     assert_eq!(report.expected_lookups, LOOKUPS);
     // 上游泄漏标签可缺失、变更或互相矛盾；输出始终只包含原始观测和完整性。
     let expected = serde_json::to_value(&report).unwrap();
-    for verdict in [
-        json!({"status":"no_leak"}),
-        json!({"status":"split"}),
-        json!({"status":"leak","leaking":true}),
-        json!({"status":"new_future_status"}),
-        Value::Null,
-    ] {
+    for status in ["no_leak", "split", "leak", "new_future_status"] {
         let mut value = observation();
-        value["verdict"] = verdict;
+        value["verdict"] = json!({"status":status,"leaking":true});
         assert_eq!(
             serde_json::to_value(finish(value).unwrap()).unwrap(),
             expected

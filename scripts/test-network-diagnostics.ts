@@ -46,9 +46,9 @@ export async function testNetworkDiagnostics(browser:Browser,base:string) {
   assert.equal(await dns.getAttribute('data-status'),'idle');
   for(const mode of ['complete','partial','none','empty','error','invalid']){
    await page.evaluate(mode=>(window as any).networkFixture.setDnsMode(mode),mode);
-   await dns.getByRole('button',{name:mode==='complete'?'开始观测':'重新观测',exact:true}).click();
+   await dns.getByRole('button',{name:mode==='complete'?'开始检测':'重新检测',exact:true}).click();
    await page.waitForFunction(()=>document.querySelector('.dns-diagnostics')?.getAttribute('data-status')==='checking');
-   assert.equal(await dns.getByRole('button',{name:'观测中',exact:true}).isDisabled(),true);
+   assert.equal(await dns.getByRole('button',{name:'检测中',exact:true}).isDisabled(),true);
    assert.equal(await dns.getByText('1.1.1.1',{exact:true}).count(),0);
    await page.evaluate(()=>(window as any).networkFixture.finishDns());
    const expected=mode==='complete'?'complete':['partial','none'].includes(mode)?'partial':'failed';
