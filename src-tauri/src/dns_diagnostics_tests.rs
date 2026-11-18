@@ -1,5 +1,5 @@
 // [INPUT]: 虚构权威观测、注入的无网络解析器与临时回环 HTTP 服务。
-// [OUTPUT]: 完整/混合/不完整/未知结论、域名白名单与会话绑定、HTTP 大小/重定向/凭据边界的离线回归。
+// [OUTPUT]: 实际地址、观测完整性、忽略泄漏结论、域名/会话与 HTTP 大小/重定向/凭据边界回归。
 // [POS]: 默认仅离线回归；显式执行 ignored 的 live 测试才联系权威服务，不读取凭据或修改系统解析器。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -16,7 +16,7 @@ fn session() -> Session {
 
 fn observation() -> Value {
     json!({"testId":"test123456","client":{"ip":"203.0.113.5","country":"United States","org":"Fixture"},
-        "lookups":12,"truncated":false,"verdict":{"status":"no_leak"},
+        "lookups":12,"truncated":false,
         "resolvers":[{"ip":"1.1.1.1","operator":"Cloudflare","org":"Cloudflare","country":"United States","asn":13335,"role":"resolver"},
             {"ip":"2606:4700:4700::1111","operator":"Cloudflare","org":"Cloudflare","country":"United States","asn":13335,"role":"resolver"}]})
 }
@@ -55,33 +55,43 @@ fn only_complete_unique_session_names_are_queried() {
 #[test]
 fn complete_observations_preserve_actual_ipv4_ipv6_resolvers() {
     let report = finish(observation()).unwrap();
-    assert_eq!(report.status, DnsStatus::Observed);
+    assert!(report.complete);
     assert_eq!(report.resolvers.len(), 2);
     assert!(report.resolvers[1].ip.is_ipv6());
     assert_eq!(report.expected_lookups, LOOKUPS);
-    let mut value = observation();
-    value["verdict"]["status"] = json!("split");
-    assert_eq!(finish(value).unwrap().status, DnsStatus::Mixed);
+    // 上游泄漏标签可缺失、变更或互相矛盾；输出始终只包含原始观测和完整性。
+    let expected = serde_json::to_value(&report).unwrap();
+    for verdict in [
+        json!({"status":"no_leak"}),
+        json!({"status":"split"}),
+        json!({"status":"leak","leaking":true}),
+        json!({"status":"new_future_status"}),
+        Value::Null,
+    ] {
+        let mut value = observation();
+        value["verdict"] = verdict;
+        assert_eq!(
+            serde_json::to_value(finish(value).unwrap()).unwrap(),
+            expected
+        );
+    }
+    assert!(expected.get("status").is_none());
+    assert!(expected.get("verdict").is_none());
 }
 
 #[test]
-fn missing_partial_truncated_and_unknown_results_never_pass() {
+fn missing_partial_and_truncated_observations_are_incomplete() {
     for count in [0, 11] {
         let mut value = observation();
         value["lookups"] = json!(count);
-        assert_eq!(finish(value).unwrap().status, DnsStatus::Inconclusive);
+        assert!(!finish(value).unwrap().complete);
     }
     let mut value = observation();
     value["truncated"] = json!(true);
-    assert_eq!(finish(value).unwrap().status, DnsStatus::Inconclusive);
-    for status in ["inconclusive", "new_future_status", "leak"] {
-        let mut value = observation();
-        value["verdict"] = json!({"status":status,"leaking":false});
-        assert_eq!(finish(value).unwrap().status, DnsStatus::Inconclusive);
-    }
+    assert!(!finish(value).unwrap().complete);
     let mut value = observation();
     value["resolvers"] = json!([]);
-    assert_eq!(finish(value).unwrap().status, DnsStatus::Inconclusive);
+    assert!(!finish(value).unwrap().complete);
 }
 
 #[test]
@@ -90,7 +100,7 @@ fn observers_are_not_resolvers_and_results_must_match_the_session() {
     value["resolvers"][0]["role"] = json!("observer");
     assert_eq!(finish(value.clone()).unwrap().resolvers.len(), 1);
     value["resolvers"][1]["role"] = json!("observer");
-    assert_eq!(finish(value).unwrap().status, DnsStatus::Inconclusive);
+    assert!(!finish(value).unwrap().complete);
     let mut value = observation();
     value["testId"] = json!("another123");
     assert!(finish(value).is_err());
@@ -170,7 +180,7 @@ fn real_http_flow_rechecks_incomplete_results_and_retains_provider_evidence() {
         gate.clone().try_acquire_owned().unwrap(),
     ))
     .unwrap();
-    assert_eq!(report.status, DnsStatus::Observed);
+    assert!(report.complete);
     assert_eq!(report.resolvers[0].operator.as_deref(), Some("Cloudflare"));
     assert_eq!(gate.available_permits(), 1);
     assert_eq!(

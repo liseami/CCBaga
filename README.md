@@ -115,11 +115,11 @@ Open **Browser** or the companion browser's local test page to measure the actua
 
 **Clear cache** retains sign-ins and personal browser data. **Clear all browser data** permanently resets the current identity's entire browser profile, including saved passwords, encryption metadata, bookmarks, history, extensions, settings and website sessions. It requires a separate confirmation and creates no backup. Other identities' profiles and the identity vault are retained; the selected fingerprint configuration applies when the browser opens again.
 
-The success page appears only when the measured checks match, the report reaches the cleaner and no measurement error remains. **Browser-specific DNS and WebRTC leak checks are not independently verified.** The Network page provides a separate, user-triggered system DNS test; it does not change the browser verification result. A green result describes the measured checks, not a guarantee of anonymity or account acceptance.
+The success page appears only when the measured checks match, the report reaches the cleaner and no measurement error remains. **Browser-specific DNS and WebRTC leak checks are not independently verified.** The Network page provides a separate, user-triggered system DNS observation; it does not change the browser verification result. A green result describes the measured checks, not a guarantee of anonymity or account acceptance.
 
-### System DNS check
+### System DNS egress observation
 
-Open Network and choose **System DNS check** to query twelve fresh test names through the OS resolver and observe the recursive resolvers at the authoritative end. The result shows the request exit IP and resolver addresses/providers, with completed, mixed or inconclusive outcomes. Incomplete observations, service errors and unknown verdicts never pass. TXT queries exercise the upstream path even with Fake-IP or disabled AAAA responses.
+Open Network and choose **System DNS egress observation** to query twelve fresh names through the OS resolver and see the recursive resolvers observed at the authoritative end. The page shows the request exit IP, resolver addresses/providers and observation completeness. It does not read the service's leak verdict or automatically judge whether DNS is leaking. TXT queries exercise the upstream path even with Fake-IP or disabled AAAA responses.
 
 The fixed third-party service, `dnsleak.dev`, sees the request exit IP and generated test names; no account data, browsing history or local configuration is sent. Requests follow system routing/TUN without an explicit HTTP proxy. Check the observed providers against your intended configuration: locations are estimates, and an IPv6 recursive resolver does not establish local IPv6 bypass. This test does not capture packets or verify browser secure DNS, WebRTC, every domain or future network states. No DNS or proxy settings are changed.
 

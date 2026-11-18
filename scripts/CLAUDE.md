@@ -10,7 +10,7 @@ windows-region.ps1: 当前用户 International 首选语言/显示语言偏好�
 claude-cli.ps1: 包管理器仅按 PATH 外部程序发现，避免精确命令触发模块扫描；Windows 唯一目录暂存/逐文件哈希回滚与失败保留恢复文件；Windows 官方 CLI 程序管理与真实完成协议；原生重装先下载、严格 UTF-8 解码字节响应并解析官方安装器，再卸载旧程序；下载/内容异常保留旧程序，安装失败使用固定脱敏文案，保留配置和项目，不执行 VPS 配置。
 package-browser.ps1: Windows 固定引擎前置核验，不打包用户资料或私钥。
 test-skill-install.ts: Agent Skills metadata/完整公开文件与 npm skills 1.7.2 的四项真实安装；临时 HOME 和缓存，关闭统计，验证共享目录、完整文件与无 symlink。
-test-network-diagnostics.ts: 系统 DNS 延期检测、实际 IPv4/IPv6/公网出口、混合/不完整/空/异常/无效返回不通过与双语；共用隔离引擎验证真实网络页的 Claude 出口四态、逐域 403 原因、命令异常/空返回拒绝、重测清旧结果和双语；不访问真实网络。
+test-network-diagnostics.ts: 系统 DNS 延期检测、实际 IPv4/IPv6/公网出口、观测完整性/空/异常/无效返回与不显示泄漏结论的双语回归；共用隔离引擎验证真实网络页的 Claude 出口四态、逐域 403 原因、命令异常/空返回拒绝、重测清旧结果和双语；不访问真实网络。
 test-browser-verification.ts: 顶部身份卡顺序、双语与不匹配/空身份/未联动 DOM 回归； 复用隔离 Playwright 引擎，真实 browser.html 的三态背景/波纹、原因、图片实际解码、紧凑布局、重测和双语 DOM 回归；虚构本机 HTTP 回报，无截图/真实账号。
 test-identities-ui.ts: 默认勾选、关闭确认/取消与恢复联动； Node.js 标准管道 + 固定引擎 + playwright-core 的隔离 DOM 模拟；40 个虚构账号验证当前槽位去重/无最近使用卡片、竖式工牌、弹簧/视差、Alert 安全默认、双语、保留选择与切换/删除/失败/恢复，临时 HOME/XDG，不调用真实 IPC、不截图或外连。
 test-claude-residue.ts: 复用身份页内存 IPC 验证显式扫描、仅精确缓存默认选择、不完整项禁选、JSON 键提示、不可逆确认默认取消、精确 ID 提交、部分失败和停止失败后的重扫读回、旧计划失效与英文确认；不触碰本机文件或钥匙串。

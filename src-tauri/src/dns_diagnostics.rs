@@ -1,5 +1,5 @@
 // [INPUT]: 用户触发的系统解析器 TXT 查询与 dnsleak.dev 固定 HTTPS 权威观测接口。
-// [OUTPUT]: 本次公网出口、实际递归解析服务器与观测/混合/不完整三态；不将配置或服务失败当作无泄漏证明。
+// [OUTPUT]: 本次公网出口、实际递归解析服务器与观测完整性；不读取或生成泄漏结论。
 // [POS]: 独立系统 DNS 诊断，不修改 DNS/代理，不测浏览器 DoH、WebRTC 或抓包路径。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -62,11 +62,6 @@ pub struct DnsResolver {
 }
 
 #[derive(Deserialize)]
-struct Verdict {
-    status: String,
-}
-
-#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Observation {
     test_id: String,
@@ -74,20 +69,11 @@ struct Observation {
     resolvers: Vec<DnsResolver>,
     lookups: usize,
     truncated: bool,
-    verdict: Verdict,
-}
-
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum DnsStatus {
-    Observed,
-    Mixed,
-    Inconclusive,
 }
 
 #[derive(Debug, Serialize)]
 pub struct DnsDiagnosis {
-    status: DnsStatus,
+    complete: bool,
     client: DnsClient,
     resolvers: Vec<DnsResolver>,
     lookups: usize,
@@ -99,20 +85,15 @@ impl Observation {
         if self.test_id != session.test_id || self.lookups > LOOKUPS || self.resolvers.len() > 128 {
             return Err("DNS 检测服务返回了无效结果。".into());
         }
-        // 权威服务器看到的重复观测者不是本机所用的解析器，不用于泄漏判断。
+        // 只展示实际递归解析器；权威端的重复观测者不是本机所用的解析器。
         let resolvers: Vec<_> = self
             .resolvers
             .into_iter()
             .filter(|r| r.role.as_deref() == Some("resolver"))
             .collect();
         let complete = self.lookups == LOOKUPS && !self.truncated && !resolvers.is_empty();
-        let status = match (complete, self.verdict.status.as_str()) {
-            (true, "no_leak") => DnsStatus::Observed,
-            (true, "split") => DnsStatus::Mixed,
-            _ => DnsStatus::Inconclusive,
-        };
         Ok(DnsDiagnosis {
-            status,
+            complete,
             client: self.client,
             resolvers,
             lookups: self.lookups,
