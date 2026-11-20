@@ -1,5 +1,5 @@
 // [INPUT]: 虚构 UUID/组织/凭据、隔离文件系统和归档格式。
-// [OUTPUT]: A/B 往返去重、刷新凭据覆盖、跨组织隔离、旧版迁移与覆盖故障、macOS/Windows 不同 Desktop 账号与 Linux 排除 macOS 路径、个人设置和共享代理保留回归。
+// [OUTPUT]: A/B 往返去重、Desktop-only 账号经 lastKnownAccountUuid 复用槽位、刷新凭据覆盖、跨组织隔离、旧版迁移与覆盖故障、macOS/Windows 不同 Desktop 账号与 Linux 排除 macOS 路径、个人设置和共享代理保留回归。
 // [POS]: 账号匹配与不可变归档代次的离线证明，不读取真实用户数据。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
@@ -657,4 +657,38 @@ fn in_place_backup_preserves_workspace_and_missing_summaries_stay_lazy() {
     let s = store::Store::open(&f.vault, &f.home).unwrap();
     assert!(s.db.summaries().unwrap().is_empty());
     assert_eq!(s.records()[0].id, rec_id);
+}
+
+#[test]
+fn desktop_only_account_reuses_one_slot_through_last_known_account_uuid() {
+    let f = Fixture::new();
+    let r = Reporter::channel(None);
+    #[cfg(windows)]
+    let desktop = "AppData/Roaming/Claude";
+    #[cfg(not(windows))]
+    let desktop = "Library/Application Support/Claude";
+    // 只用 Claude Desktop：.claude.json 存在但没有 oauthAccount，账号标识只在桌面端 config.json。
+    f.write(".claude.json", br#"{"projects":{}}"#);
+    f.write(
+        ".claude/.credentials.json",
+        br#"{"claudeAiOauth":{"accessToken":"token-a"}}"#,
+    );
+    f.write(
+        &format!("{desktop}/config.json"),
+        br#"{"lastKnownAccountUuid":"desktop-only-a","theme":"dark"}"#,
+    );
+    let p = Policy::default();
+    let mut s = store::Store::open(&f.vault, &f.home).unwrap();
+    s.save_current("Desktop A", &p, &r).unwrap();
+    s.save_current("Desktop A again", &p, &r).unwrap();
+    let rows: Vec<_> = s.records().into_iter().filter(|row| !row.empty).collect();
+    assert_eq!(rows.len(), 1, "同一桌面账号重复保存不应新建槽位");
+
+    // 不同桌面账号仍然各自独立。
+    f.write(
+        &format!("{desktop}/config.json"),
+        br#"{"lastKnownAccountUuid":"desktop-only-b","theme":"dark"}"#,
+    );
+    s.save_current("Desktop B", &p, &r).unwrap();
+    assert_eq!(s.records().into_iter().filter(|row| !row.empty).count(), 2);
 }

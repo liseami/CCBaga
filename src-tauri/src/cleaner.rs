@@ -34,6 +34,8 @@ pub(crate) mod identity;
 pub(crate) mod residue;
 #[path = "cleaner_targets.rs"]
 mod targets;
+// 身份目录索引要复用桌面端根目录发现，避免在 identities 内重复一份平台路径。
+pub(crate) use targets::desktop_roots;
 #[path = "cleaner_transaction.rs"]
 mod transaction;
 #[cfg(test)]

@@ -1,6 +1,6 @@
 // [INPUT]: 当前用户目录、Windows 实际 AppData、Claude 清理白名单与可选组织编号。
 // [OUTPUT]: 分类清理目标、五个固定锁的瞬态判定与非空/未知路径保留警告、完整目录元数据统计和受限旧组织文件匹配。
-// [POS]: 清理发现边界；不跟随链接，不遍历项目仓库，不读取凭据内容。
+// [POS]: 清理发现边界；不跟随链接，不遍历项目仓库，不读取凭据内容；desktop_roots 同时供身份目录定位桌面端 config.json。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::*;
 use std::time::{Duration, Instant};
@@ -118,7 +118,7 @@ fn entries(path: &Path, warnings: &mut Vec<String>) -> Vec<fs::DirEntry> {
         })
         .collect()
 }
-pub(super) fn desktop_roots(root: &Path) -> Vec<PathBuf> {
+pub(crate) fn desktop_roots(root: &Path) -> Vec<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let appdata = win_dir(root, "APPDATA", "AppData/Roaming");
