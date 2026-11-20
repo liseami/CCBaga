@@ -1,6 +1,6 @@
 // [INPUT]: 有界 OAuth 账号元数据、本机密钥、已认证旧归档与 SQLite 目录。
 // [OUTPUT]: 稳定的本机 HMAC 账号索引、显式事务内旧账号索引迁移与已提交归档代次回收；缺摘要不主动解包。
-// [POS]: 只按账号 UUID/组织（缺失时邮箱/组织）匹配；令牌刷新、名称变更不产生新身份。
+// [POS]: 只按账号 UUID/组织（缺失时邮箱/组织）匹配；Claude Code 缺账号元数据时回退到 Claude Desktop 的 lastKnownAccountUuid；令牌刷新、名称变更不产生新身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 use super::{database::Database, private, store::Store};
 use ring::hmac;
@@ -33,7 +33,12 @@ pub(super) fn account_key(value: &Value, key: &[u8]) -> Option<String> {
     let tag = hmac::sign(&hmac::Key::new(hmac::HMAC_SHA256, key), &bytes);
     Some(tag.as_ref().iter().map(|b| format!("{b:02x}")).collect())
 }
-fn file_key(path: &Path, key: &[u8]) -> Result<Option<String>, String> {
+/// 有界读取一个 JSON 账号文件并计算 HMAC 摘要；`extract` 决定从哪个结构与字段取标识。
+fn key_from_file(
+    path: &Path,
+    key: &[u8],
+    extract: fn(&Value, &[u8]) -> Option<String>,
+) -> Result<Option<String>, String> {
     let meta = match fs::symlink_metadata(path) {
         Ok(meta) => meta,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -54,10 +59,44 @@ fn file_key(path: &Path, key: &[u8]) -> Result<Option<String>, String> {
         return Ok(None);
     }
     let value: Value = serde_json::from_slice(&bytes).map_err(|_| "身份配置不是有效 JSON。")?;
-    Ok(account_key(&value, key))
+    Ok(extract(&value, key))
 }
+
+fn file_key(path: &Path, key: &[u8]) -> Result<Option<String>, String> {
+    key_from_file(path, key, account_key)
+}
+/// Claude Desktop 的 config.json 是扁平结构，没有 oauthAccount。
+/// 用独立的 `desktop-uuid` 命名空间，避免与基于 Claude Code 的 uuid/email 摘要互相污染。
+fn desktop_account_key(value: &Value, key: &[u8]) -> Option<String> {
+    let field = |name: &str| {
+        value[name]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty() && s.len() <= 254 && !s.chars().any(char::is_control))
+    };
+    let uuid = field("lastKnownAccountUuid")?;
+    let org = field("lastKnownOrgUuid")
+        .or_else(|| field("orgUuid"))
+        .unwrap_or("");
+    let identity = ("desktop-uuid", uuid.to_string(), org.to_string());
+    let bytes = serde_json::to_vec(&identity).ok()?;
+    let tag = hmac::sign(&hmac::Key::new(hmac::HMAC_SHA256, key), &bytes);
+    Some(tag.as_ref().iter().map(|b| format!("{b:02x}")).collect())
+}
+
 pub(super) fn live_key(home: &Path, key: &[u8]) -> Result<Option<String>, String> {
-    file_key(&home.join(".claude.json"), key)
+    if let Some(found) = file_key(&home.join(".claude.json"), key)? {
+        return Ok(Some(found));
+    }
+    // Claude Code 侧没有 oauthAccount 时（典型情况：只用 Claude Desktop），
+    // 回退到桌面端 config.json 的 lastKnownAccountUuid，否则每次保存都会新建槽位。
+    // 桌面端配置缺失、损坏或不属于当前用户一律按“无摘要”处理，不应让身份操作失败。
+    for root in crate::cleaner::desktop_roots(home) {
+        if let Ok(Some(found)) = key_from_file(&root.join("config.json"), key, desktop_account_key) {
+            return Ok(Some(found));
+        }
+    }
+    Ok(None)
 }
 pub(super) fn current_id(
     vault: &Path,
